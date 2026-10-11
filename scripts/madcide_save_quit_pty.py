@@ -4,7 +4,7 @@
 # data found relative to the cwd is exactly what this catches. After the
 # first paint it types `x`, then the given key bytes one at a time, and
 # waits for the process to exit. Driven by scripts/madcide_save_quit_gate.sh
-# (the source tree, in fulltest) and scripts/package_install_gate.sh (the
+# (the source tree, in scripts/gates.sh) and scripts/check_install.sh (the
 # installed package).
 #
 # usage: madcide_save_quit_pty.py <file> <keys-hex> <program> [args...]

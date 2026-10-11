@@ -1,0 +1,15 @@
+# LF on every checkout, Windows included: the scripts, the test fixtures,
+# the profiles and the bundle files are read line by line, and a CR at a
+# line's end becomes part of the value.
+* text=auto eol=lf
+*.ico binary
+*.png binary
+
+# GitHub's language statistics: madcide's code is C++ (its .mad and .inc
+# source is a C++ dialect); scripts/ is the build, test and packaging
+# tooling, not counted.
+*.mad linguist-language=C++
+*.inc linguist-language=C++
+*.h linguist-language=C++
+tools/madcide/include/madcide/* linguist-language=C++
+scripts/** linguist-detectable=false

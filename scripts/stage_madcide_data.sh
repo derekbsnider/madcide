@@ -2,9 +2,8 @@
 # stage_madcide_data.sh — THE staging of madcide's data into an install:
 # one implementation for every platform's package (chthonia plan
 # docs/plans/2026-10-03-chthonia-windows-macos.md §7 step D4: "one staging
-# script serves all three platforms"). Callers: scripts/stage_install.sh
-# (Linux packages, the Homebrew keg), scripts/package_release_windows.sh,
-# scripts/package_release_macos.sh.
+# script serves all three platforms"). Its caller is scripts/stage.sh, the
+# one staging every package uses.
 #
 #   scripts/stage_madcide_data.sh <data-dir> <plugins-dir>
 #

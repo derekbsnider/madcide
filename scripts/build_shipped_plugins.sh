@@ -9,8 +9,8 @@
 # Usage: scripts/build_shipped_plugins.sh <out-dir> <madcide command...>
 #   e.g. scripts/build_shipped_plugins.sh tmp/plugins-pkg tmp/madcide-pkg
 #        scripts/build_shipped_plugins.sh tmp/plugins-pkg-win wine tmp/madcide-pkg.exe
-# Used by package_release.sh and package_release_windows.sh, so the plugin
-# set and the build are one implementation. A plugin with no "code" is data
+# Used by scripts/build.sh, so the plugin set and the build are one
+# implementation. A plugin with no "code" is data
 # only and is copied as it is. A build that fails fails the package.
 set -u
 if [ $# -lt 2 ]; then

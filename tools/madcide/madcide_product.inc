@@ -8,12 +8,13 @@
 // session or thread starts; every read after it is of an unchanging record.
 
 #include "include/madcide/product"
+#include "madcide_version.h"
 
 // madcide: the console editor by default, the default bundle, no plugin
-// linked in (its shipped plugins load from their bundles). It has no version
-// of its own: it is madc's, which About shows.
-const ide_product madcide_product = { "madcide", "", ui::TUI, "", 0, "madcide", 0,
-				      "https://github.com/derekbsnider/madc",
+// linked in (its shipped plugins load from their bundles), its own version
+// and home page (madcide_version.h); About adds the madc it runs on.
+const ide_product madcide_product = { "madcide", "", ui::TUI, "", 0, "madcide", MADCIDE_VERSION,
+				      MADCIDE_HOME_PAGE,
 				      "Derek Snider", MADCIDE_MPL2_SUMMARY };
 
 const ide_product *product_given = 0;	// madcide_main's; 0 = madcide's own

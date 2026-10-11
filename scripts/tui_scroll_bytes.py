@@ -29,7 +29,7 @@ def main():
     # argv override for oracle runs (e.g. `... tui_scroll_bytes.py joe`);
     # MADC_METER_KEYS=ctrl drives with ^N/^P for editors in
     # application-cursor mode (joe), default is CSI arrows.
-    argv = sys.argv[1:] or ['bin/madc', 'tools/madcide/madcide.mad']
+    argv = sys.argv[1:] or [os.environ.get('MADC_BIN', 'madc'), 'tools/madcide/madcide.mad']
     down, up = (b'\x0e', b'\x10') \
         if os.environ.get('MADC_METER_KEYS') == 'ctrl' else \
         (b'\x1b[B', b'\x1b[A')

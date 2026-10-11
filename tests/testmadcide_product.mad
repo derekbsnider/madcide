@@ -70,8 +70,8 @@ void write_bundle()
 	"    return ide::command(w, \"lgreet\", \"Greet\", learner_greet) != 0;\n}\n");
 }
 
-// About's lines joined by `|`, the madc version and the copyright year
-// replaced by their sources' names (they change with the build).
+// About's lines joined by `|`, the madc version, madcide's and the copyright
+// year replaced by their sources' names (they change with the build).
 void about_line(var &out)
 {
     var rows;
@@ -82,6 +82,7 @@ void about_line(var &out)
     for ( var r : rows )
     {
 	var t = php::str_replace(madc::sys.version, "<sys.version>", r.c_str());
+	t = php::str_replace(MADCIDE_VERSION, "<MADCIDE_VERSION>", t.c_str());
 	t = php::str_replace(format("(c) {} ", year), "(c) <__DATE__> ", t.c_str());
 	out = format("{}|{}", out, t);
     }

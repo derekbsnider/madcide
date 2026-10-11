@@ -1,0 +1,1 @@
+testmadcide_repl.mad loads it into its REPL session (%run -i, .L) — not a standalone test

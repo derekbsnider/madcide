@@ -9,9 +9,9 @@ diff edited: header=true added=true
 blame edited: uncommitted=true
 changes: buffer=[changes] added=true read-only=true
 blame pseudo: Not a file: [changes]
-blame line: Line 2: not committed yet.
+blame line: Line 24: not committed yet.
 blame first: line=true sha=true ago=true
-history: label=History of VERSION choice=true rows=true title=true
+history: label=History of classic.theme choice=true rows=true title=true
 revision: buffer=true same=true read-only=true
 refused: %git: unknown verb 'frob': log [-n N] [FILE] | show REV[:FILE] | blame FILE[:LINE] | status | diff [FILE]
 refused: %git: which verb? log [-n N] [FILE] | show REV[:FILE] | blame FILE[:LINE] | status | diff [FILE]

@@ -12,6 +12,7 @@
 # so save and quit did nothing outside the repo root.
 cd "$(dirname "$0")/.." || exit 1
 root=$(pwd)
+madc=${MADC_BIN:-madc}	# the madc under test (scripts/gates.sh: madcide.json's)
 
 if ! command -v python3 >/dev/null 2>&1; then
     echo "madcide_save_quit_gate: python3 missing (provision_container.sh installs it)"
@@ -24,7 +25,7 @@ probe="$work/probe.c"
 fresh() { printf 'int main(void) { return 0; }\n' > "$probe"; }
 run() {	# <keys-hex> <madcide.mad> (no ambient user config: MADCIDE_CONFIG_DIR)
     ( ulimit -t 180; timeout 120 env MADCIDE_CONFIG_DIR="$work/no-config" python3 scripts/madcide_save_quit_pty.py \
-        "$probe" "$1" "$root/bin/madc" "$2" ) 2>&1
+        "$probe" "$1" "$madc" "$2" ) 2>&1
 }
 fail() { echo "madcide_save_quit_gate: FAIL — $1 (got: $2)"; exit 1; }
 

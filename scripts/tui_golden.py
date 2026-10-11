@@ -26,7 +26,7 @@ from vtscreen import Screen, spawn, settle, kill, NORMAL
 
 GOLDEN_DIR = os.path.join('tests', 'tui_golden')
 SIZES = [(36, 120), (24, 80)]
-MADC = os.environ.get('MADC_BIN', 'bin/madc')
+MADC = os.environ.get('MADC_BIN', 'madc')
 
 SOURCE = ('#include <stdio.h>\n'
           '// a comment\n'

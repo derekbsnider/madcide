@@ -1,11 +1,11 @@
 #!/bin/bash
 # madcide in a window on the Windows desktop, run from the build container:
-# the container's bin/madc-release runs madcide from the checkout's source
-# (tools/madcide), drawing on WSLg through WSLg's X socket, forwarded over
-# ssh to the owner's WSL distro (the win_run.sh link). Files are the
-# container's.
+# the container's madc (MADC_BIN, default /workspace/madc/bin/madc-release)
+# runs madcide from the checkout's source (tools/madcide), drawing on WSLg
+# through WSLg's X socket, forwarded over ssh to the owner's WSL distro (madc's
+# win_run.sh link). Files are the container's.
 #
-#   docker exec -it -u dev -w /workspace/madc madc-dev bash scripts/madcide_wslg.sh [FILE] [madcide options]
+#   docker exec -it -u dev -w /workspace/madcide madc-dev bash scripts/madcide_wslg.sh [FILE] [madcide options]
 #   (no arguments: tmp/madcide-gui/hello.c)
 #
 # Knobs: MADC_WIN_SSH (default derek@host.docker.internal), MADC_WSLG_PORT
@@ -25,4 +25,4 @@ if [ $# -eq 0 ]; then
 	set -- tmp/madcide-gui/hello.c
 fi
 DISPLAY="127.0.0.1:$((PORT - 6000))" GDK_BACKEND=x11 \
-	exec bin/madc-release tools/madcide/madcide.mad "$@" --gui
+	exec "${MADC_BIN:-/workspace/madc/bin/madc-release}" tools/madcide/madcide.mad "$@" --gui

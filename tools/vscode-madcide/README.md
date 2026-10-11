@@ -82,5 +82,5 @@ node test/protocol_probe.js          # uses ../../bin/madc
 ```
 
 Every line it prints is an answer from the server; read them against the
-protocol. `tests/testlsp_stdio` and the `test_lsp` unit cases are the gates;
+protocol. madc's `tests/testlsp_stdio` and `test_lsp` unit cases are the gates;
 this probe is the instrument.

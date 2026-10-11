@@ -25,7 +25,9 @@ if pid == 0:
     # to the cwd would pass here and fail for a user); every path absolute.
     os.environ["TERM"] = "xterm"
     ide = os.path.abspath(os.environ.get("MADCIDE", "tools/madcide/madcide.mad"))
-    madc = os.path.join(root, "bin/madc")
+    madc = os.environ.get("MADC_BIN", "madc")
+    if os.sep in madc:
+        madc = os.path.abspath(madc)
     os.chdir(workdir)
     os.execvp(madc, [madc, ide, src])
 fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 30, 100, 0, 0))

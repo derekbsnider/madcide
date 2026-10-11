@@ -76,7 +76,7 @@ def main():
     field = max(3, len(str(len(numbered)))) + 1
     expected_rows = set(('%*d  %s' % (field, n + 1, expand(l))).rstrip()
                         for n, l in enumerate(numbered))
-    pid, fd = spawn(['bin/madc', 'tools/madcide/madcide.mad', path])
+    pid, fd = spawn([os.environ.get('MADC_BIN', 'madc'), 'tools/madcide/madcide.mad', path])
     scr = Screen()
     failures = []
     try:

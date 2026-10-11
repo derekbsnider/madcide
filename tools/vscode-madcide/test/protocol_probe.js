@@ -3,7 +3,7 @@
 // (vscode-jsonrpc + vscode-languageserver-protocol: the same message reader,
 // writer and types vscode-languageclient uses inside VS Code).
 //
-// WHY THIS EXISTS. The repo's own gates (tests/testlsp_stdio, the
+// WHY THIS EXISTS. madc's own gates (tests/testlsp_stdio, the
 // test_lsp unit cases) pin what madc believes the protocol is. This
 // probe asks a real client, with a real VS Code-shaped initialize, whether it
 // agrees — and it does not need VS Code, a display, or a network. It found

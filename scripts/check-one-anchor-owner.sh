@@ -19,9 +19,11 @@
 # Rule: a stored selection anchor (mark / bend) is never SET to an
 # ARITHMETIC shift of itself outside the owner — a reanchor goes through
 # ui::anchor_shift. The rule is the engine's: no dialect file defines a
-# splice primitive (shift_offset), document::shift reads shift_position,
-# shift_anchors is defined once in editor_events.inc, and the edit follower
-# calls it once per splice (the shift is never silently dropped).
+# splice primitive (shift_offset), shift_anchors is defined once in
+# editor_events.inc, and the edit follower calls it once per splice (the
+# shift is never silently dropped). That document::shift and ui::anchor_shift
+# both answer by shift_position is madc's half of this gate, in madc's own
+# scripts/check-one-anchor-owner.sh.
 #
 # Negative controls: a synthetic duplicate shifter must FAIL the scan, and a
 # legitimate marker set (to the caret, to -1, restored from a snapshot) must
@@ -60,16 +62,8 @@ rm -f "$tmp"
 
 fail=0
 
-# --- the rule is the engine's ------------------------------------------------
-if ! grep -q '_anchors\[i\].off = shift_position(' include/madcdis/document.h; then
-	echo "check-one-anchor-owner: document::shift no longer applies shift_position" >&2
-	fail=1
-fi
-if ! grep -q 'madc::hub::shift_position(' src/ns_ui.cpp; then
-	echo "check-one-anchor-owner: ui::anchor_shift no longer answers by shift_position" >&2
-	fail=1
-fi
-dialect=$(grep -rlE "^long shift_offset\(" tools/ examples/ 2>/dev/null || true)
+# --- the rule is the engine's (no dialect copy) ------------------------------
+dialect=$(grep -rlE "^long shift_offset\(" tools/ 2>/dev/null || true)
 if [ -n "$dialect" ]; then
 	echo "check-one-anchor-owner: a dialect copy of the shift rule (use ui::anchor_shift):" >&2
 	echo "$dialect" >&2

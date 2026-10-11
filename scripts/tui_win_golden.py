@@ -17,8 +17,9 @@
 #   MADC_WIN_KEEP=1     leave the stage on the box
 #
 # MADC_WIN_SSH (derek@host.docker.internal), MADC_WIN_DIR
-# (/mnt/c/Users/Public/madcwin), MADC_BIN (bin/release-windows/madc.exe) as
-# scripts/win_suite.sh reads them. Scenarios that pin a POSIX locale's ASCII
+# (/mnt/c/Users/Public/madcwin) as madc's scripts/win_suite.sh reads them;
+# MADC_BIN, the Windows madc.exe with its DLLs beside it (default: the
+# container's madc build, /workspace/madc/bin/release-windows/madc.exe). Scenarios that pin a POSIX locale's ASCII
 # frames (LC_ALL=C) are left out: a Windows console's glyphs follow its code
 # page, which the target sets to UTF-8. Screens run one at a time (the box is
 # the owner's desktop machine).
@@ -30,7 +31,7 @@ from vtscreen import Screen, settle
 
 WIN = os.environ.get('MADC_WIN_SSH', 'derek@host.docker.internal')
 BASE = os.environ.get('MADC_WIN_DIR', '/mnt/c/Users/Public/madcwin')
-PRODUCT = os.environ.get('MADC_BIN', 'bin/release-windows/madc.exe')
+PRODUCT = os.environ.get('MADC_BIN', '/workspace/madc/bin/release-windows/madc.exe')
 SSH = ['ssh', '-o', 'BatchMode=yes']
 # WSL's non-login PATH carries no Windows directories.
 POWERSHELL = '/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'

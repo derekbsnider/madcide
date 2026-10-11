@@ -1,4 +1,4 @@
-# pty probe for the package-install gate (PK4, scripts/package_install_gate.sh):
+# pty probe for the installed-package check (scripts/check_install.sh):
 # spawn an INSTALLED madcide binary on a real pty, capture a few seconds of
 # its first paint, and CLASSIFY (the calling shell owns pass/fail):
 #   RESCUE|NORESCUE  — "RESCUE" appearing on screen is madcide's
@@ -9,7 +9,7 @@
 #                      content both carry it), proving the editor opened the
 #                      file and painted, rather than dying before first draw
 #
-# Distinct from scripts/tui_pty.py, the TUI-semantics harness (keystroke
+# Distinct from madc's scripts/tui_pty.py, the TUI-semantics harness (keystroke
 # scripts, resize/SIGWINCH, alt-screen asserts, hardwired to run a .mad
 # under bin/madc): this one runs an arbitrary installed BINARY and only
 # classifies. Promoted from the s150 PK7 ad-hoc proof (container

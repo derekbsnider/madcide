@@ -1,0 +1,3 @@
+// testmadcide_repl.mad loads this into its REPL session (%run -i, .L) and
+// %edit finds thrice on line 3: it has no main, so only its names count.
+int thrice(int x) { return 3 * x; }
