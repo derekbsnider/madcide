@@ -3,6 +3,18 @@
 madcide's history before 0.7.0 is in madc's changelog, under the releases that
 shipped it inside the madc tree.
 
+## [Unreleased]
+
+### An edit to the REPL buffer takes effect at once
+
+A colon command at the REPL pane that changes the REPL buffer (`:s`, `:a`,
+`:d`, ...) hands the buffer's text before and after to the session
+(`madc::session_edited`, madc 0.105.0's live reparse): each entry the edit
+changed or added is read again as definitions only — a function is
+redefined, a variable initialized again, no statement runs again — and what
+the session refuses shows in the transcript and Problems. Gate:
+`tests/testmadcide_repl` ("repl live").
+
 ## [0.7.0] — 2026-10-12
 
 madcide's first release as a standalone repository. madcide — the IDE and the

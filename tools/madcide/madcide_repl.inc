@@ -573,6 +573,15 @@ void repl_reply(long w, long es, var &r)
 	repl_publish(w, es, reRAN, r);
 	return;
     }
+    if ( r["kind"] == madc::session_reply::edited )
+    {
+	// The live reparse's answer: what it refused, in the transcript and
+	// Problems.
+	var erd = r["rendered"];
+	repl_feed(w, es, erd.c_str());
+	repl_problems(w, es, r);
+	return;
+    }
     if ( r["kind"] == madc::session_reply::build )
     {
 	// %build's file built (or refused): what was built, its diagnostics,
@@ -703,6 +712,22 @@ bool repl_ide_command(long w, long es, var &text, var &query)
 // input next (repl_enter); the buffer it left current is the pane's colon
 // buffer from now on — a file it switched to shows in the editor too, and a
 // write is noted as the editor's colon line notes one. False = quit.
+// The live reparse (owner 2026-10-12; madc's colon_apply): an edit a colon
+// command made to the REPL buffer takes effect at once — the session reads
+// the entries it changed again, their definitions only (session_edited).
+// `before` is the buffer's text before the command.
+void repl_buffer_reparse(long w, long es, var &before)
+{
+    long h = es_int(w, es, "replh", 0);
+    if ( !madc::session_running(h) )
+	return;
+    var after;
+    ui::text(after, w, repl_buffer_doc(w, es));
+    if ( after == before )
+	return;
+    madc::session_edited(h, before.c_str(), after.c_str());
+}
+
 bool repl_colon_outcome(long w, long es, var &r)
 {
     madc::ex_session *ex = ide_ex(w);
@@ -763,9 +788,13 @@ bool repl_colon_run(long w, long es, var &line)
     long target = es_int(w, es, "replcolon", 0);
     if ( target == 0 || !ex->use(target) )
 	ex->use(repl_buffer_doc(w, es));
+    var before;
+    ui::text(before, w, repl_buffer_doc(w, es));
     var r;
     ex->run(r, cs);
-    return repl_colon_outcome(w, es, r);
+    bool go = repl_colon_outcome(w, es, r);
+    repl_buffer_reparse(w, es, before);
+    return go;
 }
 
 // A line of a / i / c's text typed at the REPL: kept until a line holding
@@ -791,9 +820,13 @@ bool repl_colon_text(long w, long es, var &text)
     long target = es_int(w, es, "replcolon", 0);
     if ( target == 0 || !ex->use(target) )
 	ex->use(repl_buffer_doc(w, es));
+    var before;
+    ui::text(before, w, repl_buffer_doc(w, es));
     var r;
     ex->text(r, lines);
-    return repl_colon_outcome(w, es, r);
+    bool go = repl_colon_outcome(w, es, r);
+    repl_buffer_reparse(w, es, before);
+    return go;
 }
 
 // False = quit (a colon line's :q).
