@@ -3,7 +3,7 @@
 madcide's history before 0.7.0 is in madc's changelog, under the releases that
 shipped it inside the madc tree.
 
-## [0.7.0] — unreleased
+## [0.7.0] — 2026-10-12
 
 madcide's first release as a standalone repository. madcide — the IDE and the
 editor core it builds on — now lives at github.com/derekbsnider/madcide, its
