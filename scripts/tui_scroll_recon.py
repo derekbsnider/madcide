@@ -52,6 +52,7 @@ def make_input(path):
         lines.append('\t\t}')
         lines.append('\t}')
         lines.append('}')
+    os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
     with open(path, 'w') as f:
         f.write('\n'.join(lines) + '\n')
     return lines
