@@ -43,6 +43,9 @@ lang unknown: Unknown language 'fortran' (file, c17, c++17, madc, or any --std= 
 bindings: subscribed=true rows=answer int = 42 @ REPL[1]:1;
 typed run: argv=true names=true fresh=true
 typed load: live=true here=true no main=true missing once=true busy=0
+repl buffer: entry=true loaded=true run-i out=true
+repl colon: last=true listed=true file=true back=true appended=true session saw none=true
+colon action: in repl=":" editor's :b REPL focus=true buffer=true
 build: said=true built=true busy=0
 edit: file=testrepl_runcmd_lib.mad line=3 editor has keys=true busy=0
 dot: ended=true loaded=true fresh=true called=true busy=0

@@ -5951,6 +5951,8 @@ bool editor_has_keyboard(long w, long es)
 	&& !modes_active(w, es);
 }
 
+void colon_begin(long w, long es);
+
 // Enter the mode a palette row (or a @modes key) names. The palette
 // closes first — a mode takes the whole stage. False = quit (none of
 // the current modes quit; the contract rides the dispatch).
@@ -5959,7 +5961,7 @@ bool modes_dispatch(long w, long es, long doc, long caret, long a)
     if ( a == cmdCOLON )
     {
 	modes_hide(w, es);
-	start_prompt(w, es, "Command", pmCOLON);
+	colon_begin(w, es);
 	return true;
     }
     if ( a == cmdVIMODE )
@@ -6592,6 +6594,24 @@ void field_leave(var &parked, long w, long es, long fdoc)
 
 // Replace `del` bytes at `off` with `ins` in a field, its caret after the
 // insertion (through the text-mutation owners, under the field's state).
+void field_edit(long w, long es, long fdoc, long off, long del, const char *ins);
+
+// The colon line, begun where the keyboard is (owner 2026-10-12): a
+// console's input that has it (the REPL pane's) takes the `:` as typed — its
+// plugin runs a `:` line as colon mode on its own buffer (the REPL buffer);
+// otherwise the prompt, whose line acts on the current file.
+void colon_begin(long w, long es)
+{
+    long cfocus = es_int(w, es, "consolefocus", 0);
+    long fin = cfocus != 0 ? console_doc(w, es, cfocus, "input") : 0;
+    if ( fin != 0 && console_editable(w, es, cfocus) )
+    {
+	field_edit(w, es, fin, field_caret(w, fin), 0, ":");
+	return;
+    }
+    start_prompt(w, es, "Command", pmCOLON);
+}
+
 void field_edit(long w, long es, long fdoc, long off, long del, const char *ins)
 {
     var t = ins;
@@ -7825,7 +7845,17 @@ bool colon_outcome(long w, long es, long doc, var &r, long before)
     long code = r["command"].as_integer();
     long cur = ex->current();
     long ad = doc;
-    if ( cur != 0 && cur != doc )
+    long rbuf = es_int(w, es, "replbuf", 0);
+    if ( cur != 0 && cur == rbuf )
+    {
+	// The REPL buffer (`:b REPL`; owner 2026-10-12) is the REPL pane's,
+	// no editor tab: the pane shows, its colon line on that buffer.
+	ui::set(w, es, "replcolon", cur);
+	long rc = cmd_of_w(w, "repl");
+	if ( rc != 0 )
+	    ide_api_run(w, es, doc, rc, "");
+    }
+    else if ( cur != 0 && cur != doc )
     {
 	var cp;
 	ui::doc_path(cp, w, cur);
@@ -7863,6 +7893,22 @@ bool colon_outcome(long w, long es, long doc, var &r, long before)
     return !r["quit"].as_boolean();
 }
 
+// A colon line ex does not read: madcide's own colon commands (its
+// registry's view* verbs), its first word the verb. False = none ran.
+bool colon_view_line(long w, long es, long doc, var &cmd)
+{
+    const char *cs = cmd.c_str();
+    const char *sp = strchr(cs, ' ');
+    var verb = cmd;
+    var arg = "";
+    if ( sp != 0 )
+    {
+	verb = php::trim(perl::substr(cmd, 0, sp - cs));
+	arg = php::trim(sp + 1);
+    }
+    return colon_view_command(w, es, doc, verb, arg);
+}
+
 bool colon_command(long w, long es, long doc, long caret, var &in)
 {
     var cmd = php::trim(in.c_str());
@@ -7882,15 +7928,7 @@ bool colon_command(long w, long es, long doc, long caret, var &in)
     if ( !p["ok"].as_boolean() )
     {
 	// Not ex's: madcide's own colon commands (its registry's view* verbs).
-	const char *sp = strchr(cs, ' ');
-	var verb = cmd;
-	var arg = "";
-	if ( sp != 0 )
-	{
-	    verb = php::trim(perl::substr(cmd, 0, sp - cs));
-	    arg = php::trim(sp + 1);
-	}
-	if ( !colon_view_command(w, es, doc, verb, arg) )
+	if ( !colon_view_line(w, es, doc, cmd) )
 	    ui::set(w, es, "msg", p["error"].c_str());
 	return true;
     }
@@ -9259,7 +9297,7 @@ bool IdeSession::apply_ide_event(long doc, var &ev_in)
 	    {
 		// The colon line directly (a profile may seat it on its own
 		// chord; the palette's ":" row is the discoverable door).
-		start_prompt(w, es, "Command", pmCOLON);
+		colon_begin(w, es);
 		return true;
 	    }
 	    case cmdREFRESH:

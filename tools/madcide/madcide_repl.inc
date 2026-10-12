@@ -81,6 +81,31 @@ long repl_doc(long w, long es)
 
 // The input field's buffer: not a buffer-table row (it is the tab's, not a
 // document the ring shows).
+// The REPL buffer (owner 2026-10-12): a scratch buffer, [REPL], in the
+// editor's world, holding what the session kept — every entry it took and
+// every file %load loaded (a reply's `source`), one undo group each. It is no
+// editor tab: colon mode reaches it — from the REPL pane, where it is the
+// colon line's buffer until a line switches to a file (repl_colon_run), and
+// as `:b REPL` from the editor's.
+long repl_buffer_doc(long w, long es)
+{
+    long d = es_int(w, es, "replbuf", 0);
+    if ( d != 0 )
+	return d;
+    d = new_document(w, "");		// untitled: a scratch buffer has no file
+    ide_ex(w)->set_scratch(d, "[REPL]");
+    ui::set(w, es, "replbuf", d);
+    return d;
+}
+
+// What a reply says the session kept, at the REPL buffer's end.
+void repl_buffer_keep(long w, long es, var &r)
+{
+    var src = r["source"];
+    if ( !src.is_null() && strlen(src.c_str()) > 0 )
+	ide_ex(w)->append(repl_buffer_doc(w, es), src.c_str());
+}
+
 long repl_input_doc(long w, long es)
 {
     long d = es_int(w, es, "replin", 0);
@@ -380,6 +405,7 @@ void repl_reply(long w, long es, var &r)
 	    field_edit(w, es, rin, field_caret(w, rin), 0, "\n");
 	    return;
 	}
+	repl_buffer_keep(w, es, r);
 	var sv = r["shown"];
 	if ( strlen(sv.c_str()) > 0 )
 	    repl_feed(w, es, format("{}\n", sv));
@@ -512,6 +538,8 @@ void repl_reply(long w, long es, var &r)
 	}
 	var argv;
 	ui::get(argv, w, es, "replrunargv");
+	if ( !calls && php::count(argv) == 0 )
+	    repl_buffer_keep(w, es, r);		// %load's file: the REPL buffer's
 	if ( !calls && (php::count(argv) == 0 || !(r["main"] == true)) )
 	{
 	    // Nothing runs (%load, or a file without main: a main an
@@ -670,13 +698,112 @@ bool repl_ide_command(long w, long es, var &text, var &query)
     return true;
 }
 
-void repl_enter(long w, long es)
+// What a colon line typed at the REPL did (owner 2026-10-12): its printed
+// lines and its refusal into the transcript; a / i / c's text read from the
+// input next (repl_enter); the buffer it left current is the pane's colon
+// buffer from now on — a file it switched to shows in the editor too, and a
+// write is noted as the editor's colon line notes one. False = quit.
+bool repl_colon_outcome(long w, long es, var &r)
+{
+    madc::ex_session *ex = ide_ex(w);
+    if ( r["wants_text"].as_boolean() )
+    {
+	var none = {};
+	ui::set(w, es, "replextext", none);
+	ui::set(w, es, "replexin", 1);
+	return true;
+    }
+    var shown = r["shown"];
+    repl_feed(w, es, shown.c_str());
+    if ( !r["ok"].as_boolean() )
+	repl_feed(w, es, format("{}\n", r["error"]));
+    long cur = ex->current();
+    ui::set(w, es, "replcolon", cur);
+    long doc = active_doc(w, es, 0);
+    if ( cur != 0 && cur != repl_buffer_doc(w, es) )
+    {
+	if ( cur != doc )
+	{
+	    var cp;
+	    ui::doc_path(cp, w, cur);
+	    edit_file(w, es, doc, cp.c_str());	// the editor follows (:b :bn :e)
+	}
+	if ( ex_writes(r["command"].as_integer()) && !ui::doc_modified(w, cur) )
+	{
+	    recent_note_doc(w, es, cur);
+	    refresh_diags(w, es, cur);
+	}
+    }
+    return !r["quit"].as_boolean();
+}
+
+// A colon line typed at the REPL (`line`: what follows its `:`; owner
+// 2026-10-12): madc's colon mode on the pane's colon buffer — the REPL
+// buffer, until a line switches to a file (:b N, :bn, :e FILE; :b REPL comes
+// back). `:!cmd` and madcide's own colon verbs go where the editor's colon
+// line sends them. False = quit.
+bool repl_colon_run(long w, long es, var &line)
+{
+    var cmd = php::trim(line.c_str());
+    const char *cs = cmd.c_str();
+    if ( strlen(cs) == 0 )
+	return true;
+    long doc = active_doc(w, es, 0);
+    madc::ex_session *ex = ide_ex(w);
+    var p;
+    ex->parse(p, cs);
+    if ( cs[0] == '!' )
+	return colon_command(w, es, doc, 0, cmd);	// the terminal's
+    if ( !p["ok"].as_boolean() )
+    {
+	if ( !colon_view_line(w, es, doc, cmd) )
+	    repl_feed(w, es, format("{}\n", p["error"]));
+	return true;
+    }
+    long target = es_int(w, es, "replcolon", 0);
+    if ( target == 0 || !ex->use(target) )
+	ex->use(repl_buffer_doc(w, es));
+    var r;
+    ex->run(r, cs);
+    return repl_colon_outcome(w, es, r);
+}
+
+// A line of a / i / c's text typed at the REPL: kept until a line holding
+// only `.`, which hands them to the pane's colon buffer. False = quit.
+bool repl_colon_text(long w, long es, var &text)
+{
+    repl_feed(w, es, format("{}\n", text));
+    repl_set_input(w, es, "");
+    var lines;
+    ui::get(lines, w, es, "replextext");
+    if ( lines.is_null() )
+	lines = {};
+    if ( !(text == ".") )
+    {
+	lines.push(text);
+	ui::set(w, es, "replextext", lines);
+	return true;
+    }
+    ui::set(w, es, "replexin", 0);
+    var none = {};
+    ui::set(w, es, "replextext", none);
+    madc::ex_session *ex = ide_ex(w);
+    long target = es_int(w, es, "replcolon", 0);
+    if ( target == 0 || !ex->use(target) )
+	ex->use(repl_buffer_doc(w, es));
+    var r;
+    ex->text(r, lines);
+    return repl_colon_outcome(w, es, r);
+}
+
+// False = quit (a colon line's :q).
+bool repl_enter(long w, long es)
 {
     long h = es_int(w, es, "replh", 0);
     if ( !madc::session_running(h) )
     {
 	ui::set(w, es, "msg", "No session (repl starts one).");
-	return;
+	return true;
     }
     var text;
     ui::text(text, w, repl_input_doc(w, es));
@@ -687,23 +814,39 @@ void repl_enter(long w, long es)
 	madc::session_input(h, line.c_str());
 	repl_feed(w, es, line.c_str());
 	repl_set_input(w, es, "");
-	return;
+	return true;
     }
+    if ( es_int(w, es, "replexin", 0) != 0 )
+	return repl_colon_text(w, es, text);	// a colon a / i / c's text
     if ( es_int(w, es, "replbusy", 0) != 0 )
     {
 	ui::set(w, es, "msg", "The session is busy.");
-	return;
+	return true;
     }
     const char *s = text.c_str();
     long len = strlen(s);
     var trimmed = php::rtrim(s);
     if ( strlen(trimmed.c_str()) == 0 )
-	return;
+	return true;
     // What the entry is as a command, by the session's own rule.
     var query;
     bool command = madc::session_command_of(query, s);
+    if ( command && query["mode"] == madc::command_mode::colon )
+    {
+	// Colon mode is the host's (D24): the line shows and goes to history
+	// as a taken entry does, and runs here, never in the session.
+	var p;
+	repl_prompt(p, w, es);
+	var shown;
+	console_entry_display(shown, p.c_str(), text.c_str());
+	repl_feed(w, es, format("{}\n", shown));
+	repl_history_push(w, es, text.c_str());
+	repl_set_input(w, es, "");
+	var arg = query["argument"];
+	return repl_colon_run(w, es, arg);
+    }
     if ( command && repl_ide_command(w, es, text, query) )
-	return;
+	return true;
     // D11: a blank last line submits what is there (a finished if with no
     // else runs; an unfinished entry is refused).
     long last = len;
@@ -718,6 +861,7 @@ void repl_enter(long w, long es)
     ui::set(w, es, "replsent", text);
     bool help = command && query["command"] == madc::session_command::help;
     ui::set(w, es, "replhelpseq", help ? seq : 0);
+    return true;
 }
 
 void repl_complete(long w, long es)
@@ -1134,9 +1278,9 @@ bool repl_cmd_bindings(long w, long es, long doc, const char *arg)
 // keyboard back to the editor.
 bool repl_cmd_enter(long w, long es, long doc, const char *arg)
 {
-    repl_enter(w, es);
+    bool go = repl_enter(w, es);
     repl_pane_sync(w, es);
-    return true;
+    return go;
 }
 
 bool repl_cmd_complete(long w, long es, long doc, const char *arg)

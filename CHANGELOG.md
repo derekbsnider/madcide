@@ -59,3 +59,10 @@ Features madcide gained in the arc before the move:
   ex core for the colon line; `madcide --line FILE` is `madc -i FILE`.
 - `%git` runs the madcgit module's own verbs — the same implementation `madc -i`
   answers — in place of a copy written in the IDE.
+- Colon mode in the REPL reaches the REPL buffer and the file buffers alike.
+  madcide keeps a scratch `[REPL]` document per world; every entry the REPL
+  session keeps and every file a `%load` keeps is appended to it. `:` typed in
+  the REPL input runs a colon command there — on the REPL buffer by default,
+  with `:b` / `:ls` / `:e` switching to a file buffer, a file switch shown in
+  the editor — while `:` in the editor still works on the current file, and
+  `:b REPL` from the editor brings the REPL pane up on its buffer.

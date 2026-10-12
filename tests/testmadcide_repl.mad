@@ -400,6 +400,62 @@ int main()
 	    python::count(got.c_str(), "Failed to open file") == 1,
 	    es_int(w, es, "replbusy", -1));
 
+    // 11b. The REPL buffer (owner 2026-10-12): a scratch buffer holding what
+    // the session kept — each entry it took and %load's file (its live text),
+    // never a refused entry or %run -i's file — and colon mode typed at the
+    // REPL acts on it: it lists, prints, switches to the editor's file and
+    // back by name, deletes, and takes a's text from the input.
+    long rb = es_int(w, es, "replbuf", 0);
+    var rbt = "";
+    if ( rb != 0 )
+	ui::text(rbt, w, rb);
+    println("repl buffer: entry={} loaded={} run-i out={}",
+	    rust::contains(rbt.c_str(), "\nquad(3)\nthrice(twice(1))\n") != 0,
+	    rust::contains(rbt.c_str(), "int quad(int v) { return 4 * v; }\n") != 0,
+	    rust::contains(rbt.c_str(), "int thrice(int x)") == 0);
+    mark = transcript_size(w, es);
+    enter_line(S, doc, w, es, ":$p");
+    enter_line(S, doc, w, es, ":ls");
+    enter_line(S, doc, w, es, ":b madc_ide_repl");
+    enter_line(S, doc, w, es, ":1p");
+    enter_line(S, doc, w, es, ":b REPL");
+    enter_line(S, doc, w, es, ":$d");
+    enter_line(S, doc, w, es, ":$p");
+    enter_line(S, doc, w, es, ":$a");
+    enter_line(S, doc, w, es, "int added = 1;");
+    enter_line(S, doc, w, es, ".");
+    transcript_since(got, w, es, mark);
+    ui::text(rbt, w, rb);
+    println("repl colon: last={} listed={} file={} back={} appended={} session saw none={}",
+	    rust::contains(got.c_str(), "\nthrice(twice(1))\n") != 0,
+	    rust::contains(got.c_str(), "\"[REPL]\"") != 0,
+	    rust::contains(got.c_str(), "\nint quad(int v) { return 4 * v; }\n") != 0,
+	    rust::contains(got.c_str(), "\nquad(3)\n") != 0,
+	    rust::contains(rbt.c_str(), "\nquad(3)\nint added = 1;\n") != 0,
+	    rust::contains(got.c_str(), "colon-mode command") == 0);
+    // The colon action where the keyboard is: in the REPL's input it types
+    // the `:` (the line is then the REPL's colon line); in the editor it is
+    // the prompt, on the current file — and `:b REPL` there brings the REPL
+    // pane up on its buffer.
+    ev_action(e, "colon");
+    S.apply_ide_event(doc, e);
+    var typed;
+    input_text(typed, w, es);
+    repl_set_input(w, es, "");
+    ev_key(e, "^]");			// the keyboard back to the editor
+    S.apply_ide_event(doc, e);
+    long away = repl_focused(w, es);
+    ev_action(e, "colon");
+    S.apply_ide_event(doc, e);
+    ev_text(e, "b REPL");
+    S.apply_ide_event(doc, e);
+    ev_key(e, "enter");
+    S.apply_ide_event(doc, e);
+    settle(w, es, false);
+    println("colon action: in repl={} editor's :b REPL focus={} buffer={}",
+	    js::stringify(typed), away == 0 && repl_focused(w, es) == 1,
+	    es_int(w, es, "replcolon", 0) == rb);
+
     // 12. The `.` prefix (plan §7f): `.q` ends the session and the pane
     // starts a fresh one, as when a backend ends; `.L` is %load; `.x` loads
     // its file and the session calls the function named after it.
