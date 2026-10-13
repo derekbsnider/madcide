@@ -112,6 +112,7 @@ Window onlywin Only Window [split]
 
 Build build Build…
 Build replrun Run in REPL
+Build replrunall Restart and Run All
 Build replstop Stop the REPL
 Build replinterrupt Interrupt the REPL
 Build repleof Send EOF to the REPL

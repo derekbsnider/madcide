@@ -30,6 +30,8 @@
 // fresh session, `%run <name>` in the transcript, the buffer's live text
 // loaded under its path, then its main run (its output in the transcript,
 // the input its stdin), and the prompt left with the buffer's names.
+// Restart and Run All (`replrunall`, `%runall`) runs the REPL buffer again in
+// a fresh session: its entries as typed, then its main (session_rebuild).
 //
 // State on the bag: repl.pane (the console view's state: { transcript,
 // input, prompt, editable }, kept by repl_pane_sync), replh (the session
@@ -40,7 +42,7 @@
 // (a pending completion), replloadseq / replrunseq / replrunpath /
 // replrunargv (a file's load and run requests — F5's or a typed %run's
 // or %load's — the path it loads under and main's argv, empty when main
-// does not run), replbseq (a
+// does not run), replrunallseq (Restart and Run All's request), replbseq (a
 // pending bindings request, replbindings), replin (the input
 // buffer, a field: its caret is the field's own), replhpos /
 // repldraft (the history's place; its entries are madc's store). Its
@@ -268,6 +270,7 @@ void repl_clear_marks(long w, long es)
     ui::set(w, es, "replruncall", 0);
     ui::set(w, es, "replbuildseq", 0);
     ui::set(w, es, "replhelpseq", 0);
+    ui::set(w, es, "replrunallseq", 0);
 }
 
 // The `--std=` spelling a backend for `doc` takes: the standard the buffer
@@ -359,6 +362,41 @@ void repl_publish(long w, long es, long kind, var &r)
 void repl_reply(long w, long es, var &r)
 {
     long seq = r["seq"].as_integer();
+    bool runall = seq != 0 && seq == es_int(w, es, "replrunallseq", 0);
+    if ( runall && r["kind"] == madc::session_reply::running )
+    {
+	// Restart and Run All's entry: shown as typed, before its output.
+	var entry = r["entry"];
+	var p;
+	repl_prompt(p, w, es);
+	var shown;
+	console_entry_display(shown, p.c_str(), php::rtrim(entry.c_str()));
+	repl_feed(w, es, format("{}\n", shown));
+	return;
+    }
+    if ( runall && r["kind"] == madc::session_reply::replayed )
+    {
+	// Its value and diagnostics; the REPL buffer holds it already.
+	var sv = r["shown"];
+	if ( strlen(sv.c_str()) > 0 )
+	    repl_feed(w, es, format("{}\n", sv));
+	var rd = r["rendered"];
+	repl_feed(w, es, rd.c_str());
+	repl_problems(w, es, r);
+	return;
+    }
+    if ( runall && r["kind"] == madc::session_reply::rebuild )
+    {
+	// The REPL buffer ran, then its main: the session is the buffer's.
+	ui::set(w, es, "replrunallseq", 0);
+	ui::set(w, es, "replbusy", 0);
+	ui::set(w, es, "replrunning", 0);
+	var rd = r["rendered"];
+	repl_feed(w, es, rd.c_str());
+	repl_problems(w, es, r);
+	repl_publish(w, es, reRAN, r);
+	return;
+    }
     if ( r["kind"] == madc::session_reply::running )
     {
 	if ( seq != es_int(w, es, "replbusy", 0) )
@@ -962,11 +1000,20 @@ void repl_show(long w, long es)
 // state is gone, so no reply is owed and the stopped event is published, as
 // when a backend ends (a plugin's rows of the old state clear). False = the
 // restart failed; the transcript says why.
+bool repl_restart_under(long w, long es, const char *std0);
+
 bool repl_restart(long w, long es, long doc)
 {
-    long h = es_int(w, es, "replh", 0);
     var spelling;
     repl_std_of(spelling, w, doc);
+    return repl_restart_under(w, es, spelling.c_str());
+}
+
+// The same under the standard `std0` names.
+bool repl_restart_under(long w, long es, const char *std0)
+{
+    var spelling = std0;		// ring discipline: own the text first
+    long h = es_int(w, es, "replh", 0);
     if ( !madc::session_restart(h, spelling.c_str()) )
     {
 	var why = madc::session_error(h);
@@ -1093,6 +1140,44 @@ void repl_run(long w, long es, long doc)
 		   false);
 }
 
+// Restart and Run All (`replrunall`, `%runall`; Jupyter's Restart Kernel
+// and Run All Cells, owner 2026-10-13): the REPL buffer runs again in a fresh
+// session under the session's standard — its entries as typed, each shown in
+// the transcript with what it printed and its value, then its main when it
+// defines one no entry called, with argv [REPL] and the Program arguments
+// (session_rebuild). The REPL buffer stays as it is; F5 and %run run the
+// editor's buffer.
+void repl_run_all(long w, long es)
+{
+    var text;
+    ui::text(text, w, repl_buffer_doc(w, es));
+    if ( strlen(text.c_str()) == 0 )
+    {
+	ui::set(w, es, "msg", "The REPL buffer is empty.");
+	return;
+    }
+    bool had = es_int(w, es, "replh", 0) != 0;
+    repl_show(w, es);
+    long h = es_int(w, es, "replh", 0);
+    if ( !madc::session_running(h) )
+	return;				// repl_start said why
+    var spelling = madc::session_standard(h);
+    if ( had && !repl_restart_under(w, es, spelling.c_str()) )
+	return;
+    repl_clear_marks(w, es);
+    repl_feed(w, es, "[a new session; the REPL buffer runs again]\n");
+    var args;
+    ui::get(args, w, es, "progargs");
+    if ( args.is_null() )
+	args = "";
+    var argv;
+    program_argv(argv, "[REPL]", args.c_str());
+    long seq = madc::session_rebuild(h, text.c_str(), argv);
+    ui::set(w, es, "replrunallseq", seq);
+    ui::set(w, es, "replbusy", seq);
+    ui::set(w, es, "replrunning", 1);	// the input is its stdin meanwhile
+}
+
 // A typed file command (plan §7f): the engine split the line and asks, as
 // IPython's payloads do, for its file to be loaded — %load (nothing runs),
 // %run -i (main runs in this session), %run (main runs in a fresh one,
@@ -1211,6 +1296,13 @@ bool repl_cmd_show(long w, long es, long doc, const char *arg)
 bool repl_cmd_run(long w, long es, long doc, const char *arg)
 {
     repl_run(w, es, doc);
+    repl_pane_sync(w, es);
+    return true;
+}
+
+bool repl_cmd_run_all(long w, long es, long doc, const char *arg)
+{
+    repl_run_all(w, es);
     repl_pane_sync(w, es);
     return true;
 }
@@ -1448,7 +1540,11 @@ bool repl_activate(long w)
     if ( syms == 0 || sview == viewNONE )
 	return false;
     ui::set(w, rw, "symview", sview);
+    long runall = plugin_command(w, "replrunall", "Restart and Run All", repl_cmd_run_all);
     return plugin_command(w, "replrun", "Run in REPL", repl_cmd_run) != 0
+	&& runall != 0
+	&& plugin_repl_command(w, "runall", "%runall",
+			       "restart the session and run the REPL buffer again", runall)
 	&& plugin_command(w, "replstop", "Stop the REPL", repl_cmd_stop) != 0
 	&& plugin_command(w, "replinterrupt", "Interrupt the REPL", repl_cmd_interrupt) != 0
 	&& plugin_command(w, "repleof", "Send EOF to the REPL", repl_cmd_eof) != 0

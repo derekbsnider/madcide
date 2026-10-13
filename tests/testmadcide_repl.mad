@@ -530,7 +530,9 @@ int main()
     const char *ide_at = strstr(g, "IDE commands:");
     println("ide cmd: ran={} {} shown={} listed={} after={} busy={}", who, who2,
 	    rust::contains(got.c_str(), "%hi bob\n") != 0,
-	    rust::contains(got.c_str(), "IDE commands:\n%git VERB [ARGS]  the repository: log") != 0
+	    rust::contains(got.c_str(), "IDE commands:\n") != 0
+		&& rust::contains(got.c_str(), "\n%git VERB [ARGS]  the repository: log") != 0
+		&& rust::contains(got.c_str(), "\n%runall           restart the session and run the REPL buffer again\n") != 0
 		&& rust::contains(got.c_str(), "\n%hi [WHO]         say hello\n") != 0,
 	    quit_at != 0 && ide_at != 0 && quit_at < ide_at,
 	    es_int(w, es, "replbusy", -1));

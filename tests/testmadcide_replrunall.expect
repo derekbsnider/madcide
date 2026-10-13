@@ -1,0 +1,4 @@
+empty: msg=[The REPL buffer is empty.]
+menu: note=true entry=true two lines=true value=true main=1 idle=true
+after: c11> count + 1|5|
+typed: note=true entry=true two lines=true value=true main=1 idle=true

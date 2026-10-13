@@ -1,0 +1,91 @@
+// Restart and Run All in madcide's REPL pane (owner 2026-10-13; Jupyter's
+// Restart Kernel and Run All Cells): `replrunall` (the Build menu's) and
+// `%runall` (typed in the REPL) run the REPL buffer again in a fresh session.
+// Each entry is taken as it was typed (one over two lines included) and shows
+// in the transcript with what it printed and its value; then the buffer's
+// main runs, because no entry called it. The session is then the buffer's.
+// With an empty REPL buffer there is nothing to run.
+#include "../tools/texteditor/editor_events.inc"
+#include "../tools/madcide/madcide_core.inc"
+#include "../tools/madcide/include/madcide/harness"	// <madcide/harness>: ev_*, settle, enter_line
+
+// The transcript's text after `from` bytes (what the last steps added).
+void transcript_since(var &out, long w, long es, long from)
+{
+    var t = "";
+    long rd = repl_doc_if_any(w, es);
+    if ( rd != 0 )
+	ui::text(t, w, rd);
+    out = t.substr(from, strlen(t.c_str()) - from);
+}
+
+long transcript_size(long w, long es)
+{
+    long rd = repl_doc_if_any(w, es);
+    return rd == 0 ? 0 : ui::text_size(w, rd);
+}
+
+// What a run of the REPL buffer added to the transcript.
+void show_run(long w, long es, long from, const char *label)
+{
+    var got;
+    transcript_since(got, w, es, from);
+    println("{}: note={} entry={} two lines={} value={} main={} idle={}", label,
+	    rust::contains(got.c_str(), "[a new session; the REPL buffer runs again]\n") != 0,
+	    rust::contains(got.c_str(), "c11> count = twice(count);\n") != 0,
+	    rust::contains(got.c_str(), "c11> int twice(int v) {\n     return 2 * v; }\n") != 0,
+	    rust::contains(got.c_str(), "c11> count\n4\n") != 0,
+	    python::count(got.c_str(), "main: count=4\n"),
+	    es_int(w, es, "replbusy", -1) == 0);
+}
+
+int main()
+{
+    const char *path = "madc_ide_replrunall.mad";
+    php::file_put_contents(path, "int unused;\n");
+    long w = ui::world_new();
+    long doc = setup_editor(w, path, false);
+    long es = ui::entity_by_name(w, "editor-state");
+    builtins_activate(w, es);	// madcide's own modules, as IdeSession::open activates them
+    ui::set(w, es, "profile_dir", "tools/madcide/profiles");
+    ui::set(w, es, "profile", "joe");
+    ui::set(w, lang_world(w), "std", (long)madc::fkC11);	// as --std=c11 sets it
+    IdeSession S;
+    S.attach(w, es);
+
+    var e;
+    ev_action(e, "replrunall", "");
+    S.apply_ide_event(doc, e);
+    var m;
+    ui::get(m, w, es, "msg");
+    println("empty: msg=[{}]", m);
+
+    ev_action(e, "repl", "");
+    S.apply_ide_event(doc, e);
+    enter_line(S, doc, w, es, "#include <stdio.h>");
+    enter_line(S, doc, w, es, "int count = 2;");
+    enter_line(S, doc, w, es, "int twice(int v) {");
+    enter_line(S, doc, w, es, "return 2 * v; }");
+    enter_line(S, doc, w, es, "count = twice(count);");
+    enter_line(S, doc, w, es, "int main(void) { printf(\"main: count=%d\\n\", count); return 0; }");
+    enter_line(S, doc, w, es, "count");
+
+    long from = transcript_size(w, es);
+    ev_action(e, "replrunall", "");
+    S.apply_ide_event(doc, e);
+    settle(w, es, false);
+    show_run(w, es, from, "menu");
+    from = transcript_size(w, es);
+    enter_line(S, doc, w, es, "count + 1");
+    var after;
+    transcript_since(after, w, es, from);
+    println("after: {}", php::str_replace("\n", "|", after));
+
+    from = transcript_size(w, es);
+    enter_line(S, doc, w, es, "%runall");
+    show_run(w, es, from, "typed");
+
+    S.close();
+    php::unlink(path);
+    return 0;
+}

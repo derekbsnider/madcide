@@ -133,6 +133,11 @@ entry at a time.
 Runs the buffer's program in the REPL: a fresh session, the buffer
 loaded, then its main.
 
+## replrunall
+Runs the REPL buffer again in a fresh session: each entry as it was typed,
+then its main when it defines one that no entry called. `%runall` in the
+REPL does the same.
+
 ## replstop
 Stops what the REPL is running.
 

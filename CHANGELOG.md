@@ -15,6 +15,17 @@ redefined, a variable initialized again, no statement runs again — and what
 the session refuses shows in the transcript and Problems. Gate:
 `tests/testmadcide_repl` ("repl live").
 
+### Restart and Run All
+
+The Build menu's **Restart and Run All** (`replrunall`), and `%runall` typed in
+the REPL, run the REPL buffer again in a fresh session, as Jupyter's Restart
+Kernel and Run All Cells does: each entry as it was typed (one over several
+lines included), shown in the transcript with what it printed and its value,
+then the buffer's main when it defines one no entry called, with `[REPL]` and
+the Program arguments as its argv (`madc::session_rebuild`, madc 0.105.0).
+The REPL buffer stays as it is; F5 and `%run` keep running the editor's
+buffer. Gate: `tests/testmadcide_replrunall`.
+
 ## [0.7.0] — 2026-10-12
 
 madcide's first release as a standalone repository. madcide — the IDE and the
