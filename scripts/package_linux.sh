@@ -16,7 +16,10 @@
 #   scripts/package_linux.sh [--deb] [-o DIST]
 #
 #   MADC             as build.sh
-#   MADC_PACKAGE     that madc's release package, which the packages carry:
+#   MADCIDE_BUILD    what scripts/build.sh -o DIR already built, packaged
+#                    as it is (default: built now; scripts/common.sh's
+#                    package_build)
+#   MADC_PACKAGE    that madc's release package, which the packages carry:
 #                    its tarball, or for --deb the .deb of this Ubuntu release
 #   PKG_RELEASE      the package revision (default 1)
 #   --deb            the .deb alone (another Ubuntu release's)
@@ -83,7 +86,7 @@ work=$here/tmp/package-linux
 rm -rf "$work"
 mkdir -p "$work" "$dist"
 dist=$(cd "$dist" && pwd)
-bash "$here/scripts/build.sh" -o "$work/build"
+package_build "$work" || exit 1
 strip --strip-unneeded "$work/build/madcide" "$work/build/$baselib"
 # stage ROOT — the paired madc's folder with madcide in it.
 stage() {

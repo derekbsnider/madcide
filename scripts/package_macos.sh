@@ -9,7 +9,9 @@
 #   scripts/package_macos.sh [-o DIST]
 #
 #   MADC          as build.sh
-#   MADC_PACKAGE  that madc's release tarball, which the tarball carries
+#   MADCIDE_BUILD what scripts/build.sh -o DIR already built, packaged as it
+#                 is (default: built now; scripts/common.sh's package_build)
+#   MADC_PACKAGE that madc's release tarball, which the tarball carries
 #   -o DIST       where the tarball goes (default dist/), its line in its
 #                 SHA256SUMS
 #
@@ -37,7 +39,7 @@ work=$here/tmp/package-macos
 rm -rf "$work"
 mkdir -p "$work" "$dist"
 dist=$(cd "$dist" && pwd)
-bash "$here/scripts/build.sh" -o "$work/build"
+package_build "$work" || exit 1
 folder=madcide-$ver-macos-$(uname -m)
 madc_unpack "$madc_pkg" "$work/tar/$folder"
 MADCIDE_BUILD="$work/build" bash "$here/scripts/stage.sh" macos "$work/tar/$folder"

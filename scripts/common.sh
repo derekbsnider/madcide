@@ -23,6 +23,10 @@
 #             madc_ver)
 #   madc_unpack PACKAGE ROOT
 #             a madc release package unpacked into ROOT, madc's folder layout
+#   package_build WORK
+#             WORK/build, the madcide a package carries: MADCIDE_BUILD, what
+#             scripts/build.sh -o DIR already built (copied, refused when
+#             older than the sources), else a build made now
 #   refresh_sums DIST FILE...
 #             DIST/SHA256SUMS's lines for the packages just made
 #   plain_modes DIR
@@ -152,6 +156,36 @@ madc_unpack() {
 		echo "madc_unpack: $pkg holds no bin/madc$exe" >&2
 		return 1
 	fi
+}
+
+# package_build WORK — WORK/build, the madcide a package carries. With
+# MADCIDE_BUILD, the build scripts/build.sh already made there (the one the
+# tests ran) is copied, never built again — a copy, since a package strips
+# its binaries; it must hold the program, the base library and the plugins,
+# and be newer than every source under tools/. Without it, built now.
+package_build() {
+	local work=$1 b=${MADCIDE_BUILD:-} f newer
+	if [ -z "$b" ]; then
+		bash "$here/scripts/build.sh" -o "$work/build"
+		return
+	fi
+	if ! b=$(cd "$b" 2>/dev/null && pwd); then
+		echo "$(basename "$0"): MADCIDE_BUILD ($MADCIDE_BUILD) is not a directory" >&2
+		return 1
+	fi
+	for f in "madcide$exe" "$baselib" plugins; do
+		if [ ! -e "$b/$f" ]; then
+			echo "$(basename "$0"): no $f in MADCIDE_BUILD ($b) — scripts/build.sh -o $b first" >&2
+			return 1
+		fi
+	done
+	newer=$(find "$here/tools" -type f -newer "$b/madcide$exe" | head -1)
+	if [ -n "$newer" ]; then
+		echo "$(basename "$0"): MADCIDE_BUILD ($b) is older than $newer — build it again" >&2
+		return 1
+	fi
+	mkdir -p "$work/build"
+	cp -R "$b/." "$work/build/"
 }
 
 # plain_modes DIR — directories 0755 (a setgid bit inherited from the

@@ -99,7 +99,7 @@ jobs:
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           MADC_FAIL_DETAIL=20 xvfb-run -a bash scripts/run_tests.sh --gui
       - name: packages (.deb, .rpm, tarball)
-        run: bash scripts/package_linux.sh
+        run: MADCIDE_BUILD=build bash scripts/package_linux.sh
       - name: installed — the tarball alone
         run: |
           mkdir "$RUNNER_TEMP/alone"
@@ -158,7 +158,7 @@ jobs:
       - name: window tests
         run: MADC_FAIL_DETAIL=20 xvfb-run -a bash scripts/run_tests.sh --gui
       - name: package (.deb)
-        run: bash scripts/package_linux.sh --deb
+        run: MADCIDE_BUILD=build bash scripts/package_linux.sh --deb
       - name: installed — the .deb alone, madc's removed
         run: |
           sudo DEBIAN_FRONTEND=noninteractive apt-get purge -y -qq madc
@@ -280,7 +280,7 @@ jobs:
       - name: tests
         run: MADC_FAIL_DETAIL=20 bash scripts/run_tests.sh
       - name: package (tarball)
-        run: bash scripts/package_macos.sh
+        run: MADCIDE_BUILD=build bash scripts/package_macos.sh
       - name: installed — the tarball alone
         run: |
           mkdir "$RUNNER_TEMP/alone"

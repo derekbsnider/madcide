@@ -13,6 +13,8 @@
 #
 #   MADC          the Windows madc, as a command: "wine <madc folder>/bin/madc.exe"
 #                 on Linux, <madc folder>/bin/madc.exe on Windows
+#   MADCIDE_BUILD what scripts/build.sh -o DIR already built, packaged as it
+#                 is (default: built now; scripts/common.sh's package_build)
 #   MADC_PACKAGE  that madc's release zip, which the zip carries
 #   -o DIST       where the zip goes (default dist/), its line in its SHA256SUMS
 #
@@ -39,7 +41,7 @@ work=$here/tmp/package-windows
 rm -rf "$work"
 mkdir -p "$work" "$dist"
 dist=$(cd "$dist" && pwd)
-bash "$here/scripts/build.sh" -o "$work/build"
+package_build "$work" || exit 1
 folder=madcide-$ver-windows-x86_64
 madc_unpack "$madc_pkg" "$work/zip/$folder"
 MADCIDE_BUILD="$work/build" bash "$here/scripts/stage.sh" windows "$work/zip/$folder"

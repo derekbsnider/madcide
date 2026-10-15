@@ -43,6 +43,15 @@ painter's SGR becomes the terminal screen's coloured runs. The input, as it is
 typed, keeps the editor's own span colouring (`madc::lex_spans`). Gate:
 `tests/testmadcide_repl` (the `repl colon colour:` line).
 
+### Packages carry the tested build
+
+`MADCIDE_BUILD` names what `scripts/build.sh -o DIR` already built, and
+`package_linux.sh`, `package_macos.sh` and `package_windows.sh` package that
+build as it is instead of compiling madcide a second time (without it they
+build first, as before). A build missing the program, its base library or the
+plugins, or older than a source under `tools/`, is refused. CI's Linux,
+Ubuntu 22.04 and macOS jobs package the build their tests ran.
+
 ## [0.7.0] — 2026-10-12
 
 madcide's first release as a standalone repository. madcide — the IDE and the
