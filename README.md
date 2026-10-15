@@ -72,3 +72,4 @@ MADC=/path/to/madc bash scripts/gates.sh                 # the gates
 Mozilla Public License 2.0 — see [LICENSE](LICENSE).
 
 [![M8ven Score](https://m8ven.ai/badge/mcp/derekbsnider-madcide-1f3txp?v=2c5e1b4782867797e67e772b78a7e36f)](https://m8ven.ai/mcp/derekbsnider-madcide-1f3txp?s=readme)
+[![M8ven Score](https://m8ven.ai/badge/mcp/derekbsnider-madcide-1f3txp)](https://m8ven.ai/mcp/derekbsnider-madcide-1f3txp?s=readme)
