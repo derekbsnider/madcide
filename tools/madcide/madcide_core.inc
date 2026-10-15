@@ -1456,15 +1456,24 @@ void full_screen(long w, long es)
     ui::set(w, es, "termreq", rq);
 }
 
-bool load_theme(long w, long es, const char *name)
+// A scheme by name: its class and chrome lines read by madc's own theme
+// reader (madc::theme_styles — the CLI's: a refined class the scheme leaves
+// unnamed holds its parent's style, a name no class or chrome piece has is
+// refused), its @scope lines here. False = no such file, or the reader
+// refused it (`why` says which line; the previous scheme stays). The text is
+// kept for madc::theme_paint, which colours the REPL's code as the CLI does.
+bool load_theme(long w, long es, const char *name, var &why)
 {
     var tname = name;		// ring discipline: own the text first
+    why = "";
     var tpath;
     bundle_data_path(tpath, w, es, tname.c_str(), cbTHEME);
     var txt;
     if ( !php::file_get_contents(txt, tpath.c_str()) )
 	return false;
-    var th;
+    var styles;
+    if ( !madc::theme_styles(styles, why, txt.c_str()) )
+	return false;
     var gth;			// the @gui scope: CSS custom properties
     var pth;			// the @presence scope: round-robin caret colours
     array lines;
@@ -1478,66 +1487,47 @@ bool load_theme(long w, long es, const char *name)
 	const char *ls = line.c_str();
 	// A scoped line (@gui prop value): the web target's colours/fonts as
 	// CSS custom properties, through the ONE scope_line_parts rule the
-	// key tables use. The unscoped JOE-vocabulary lines below still feed
-	// the TUI theme unchanged — one file, two renderings, later lines win.
-	if ( ls[0] == '@' )
+	// key tables use. One file, two renderings, later lines win.
+	if ( ls[0] != '@' )
+	    continue;
+	// @presence <slot> <style spec>: the round-robin caret colour a
+	// client is dealt at connect (client-server V3c). A spec may be
+	// multi-word ("bold red"), so read the tail whole — the shared scope
+	// rule (scope_line_parts) keeps only the last word.
+	if ( perl::index(ls, "@presence ") == 0 )
 	{
-	    // @presence <slot> <style spec>: the round-robin caret colour a
-	    // client is dealt at connect (client-server V3c). A spec may be
-	    // multi-word ("bold red"), so read the tail whole — the shared scope
-	    // rule (scope_line_parts) keeps only the last word.
-	    if ( perl::index(ls, "@presence ") == 0 )
+	    var rest = php::trim(ls + 10);
+	    const char *rc = rest.c_str();
+	    const char *gap = strchr(rc, ' ');
+	    if ( gap != 0 )
 	    {
-		var rest = php::trim(ls + 10);
-		const char *rc = rest.c_str();
-		const char *gap = strchr(rc, ' ');
-		if ( gap != 0 )
-		{
-		    var slot = php::trim(perl::substr(rest, 0, gap - rc));
-		    pth[slot.c_str()] = php::trim(gap + 1);
-		}
-		continue;
+		var slot = php::trim(perl::substr(rest, 0, gap - rc));
+		pth[slot.c_str()] = php::trim(gap + 1);
 	    }
-	    var scope;
-	    var prop;
-	    var val;
-	    if ( scope_line_parts(line, scope, prop, val) && scope == "gui" )
-		gth[prop.c_str()] = val;
 	    continue;
 	}
-	const char *sp = strchr(ls, ' ');
-	if ( sp == 0 )
-	    continue;
-	long cut = sp - ls;
-	var cls = php::trim(perl::substr(line, 0, cut));
-	var spec = php::trim(sp + 1);
-	th[cls.c_str()] = spec;
+	var scope;
+	var prop;
+	var val;
+	if ( scope_line_parts(line, scope, prop, val) && scope == "gui" )
+	    gth[prop.c_str()] = val;
     }
-    // A refined class the scheme leaves unnamed takes its nearest named
-    // ANCESTOR's colour: a scheme written before the class existed still
-    // colours `return` as a keyword, an escape as the string around it and a
-    // namespace as a user type, or as a type (never a plain hole).
-    var parent = { "control": "keyword", "typename": "type",
-		   "namespace": "typename",
-		   "directive": "keyword", "include": "string",
-		   "escape": "string" };
-    array pk;
-    php::array_keys(pk, parent);
-    for ( var k : pk )
-    {
-	if ( !th[k.c_str()].is_null() )
-	    continue;
-	var pc = parent[k.c_str()];
-	while ( th[pc.c_str()].is_null() && php::array_key_exists(pc.c_str(), parent) )
-	    pc = parent[pc.c_str()];
-	if ( !th[pc.c_str()].is_null() )
-	    th[k.c_str()] = th[pc.c_str()];
-    }
+    var th = styles["syntax"];
+    var tc = styles["chrome"];
     ui::set(w, es, "theme", th);
+    ui::set(w, es, "theme_chrome", tc);	// the grid's root `chrome` hint
+    ui::set(w, es, "theme_text", txt);	// madc::theme_paint's scheme
     ui::set(w, es, "gui_theme", gth);	// empty clears a prior scheme's vars
     ui::set(w, es, "presence_theme", pth);	// empty clears the prior palette
     ui::set(w, es, "scheme", tname);
     return true;
+}
+
+// The same, when why it failed does not matter (a test's setup).
+bool load_theme(long w, long es, const char *name)
+{
+    var why;
+    return load_theme(w, es, name, why);
 }
 
 // ---- menus / commands as data (S1, 2026-09-08) --------------------------
@@ -3569,9 +3559,13 @@ bool finish_prompt(long w, long es, long doc, long caret)
 	// state. `doc` here is the NAV target — while a view is up the
 	// stored buffer recolours on exit/reparse instead (spans are
 	// stored-space only), so the immediate refresh is skipped.
-	if ( !load_theme(w, es, in.c_str()) )
+	var why;
+	if ( !load_theme(w, es, in.c_str(), why) )
 	{
-	    ui::set(w, es, "msg", format("No theme '{}'.", in));
+	    if ( strlen(why.c_str()) > 0 )
+		ui::set(w, es, "msg", format("Theme '{}' refused: {}.", in, why));
+	    else
+		ui::set(w, es, "msg", format("No theme '{}'.", in));
 	    return true;
 	}
 	var vw;
@@ -6702,50 +6696,6 @@ void console_code_spans(var &hs, long w, long es, const char *prompt,
 			   base + console_display_caret(p.c_str(), s, off),
 			   r["length"].as_integer());
     }
-}
-
-// An entry's text as a console's terminal screen keeps it (ui::term_feed):
-// each tab expanded to the screen's stop (every 8 of its byte columns, the
-// first line starting after the prompt at screen column `col0` — the others
-// after the continuation pad of the prompt's width, console_entry_display),
-// the other control bytes but the new-line dropped — so what is fed is what
-// the screen holds, byte for byte.
-void console_screen_text(var &out, long col0, const char *prompt, const char *text)
-{
-    var p = prompt;			// ring discipline
-    var t = text;
-    const char *s = t.c_str();
-    long pw = ui::text_columns(p.c_str());
-    long col = col0 + strlen(p.c_str());
-    var o = "";
-    long n = strlen(s);
-    long from = 0;			// the run of plain bytes not yet copied
-    for ( long i = 0; i < n; i = i + 1 )
-    {
-	long b = s[i] & 255;
-	if ( b >= 32 && b != 127 )
-	{
-	    col = col + 1;
-	    continue;
-	}
-	if ( i > from )
-	    o = format("{}{}", o, perl::substr(t, from, i - from));
-	from = i + 1;
-	if ( b == 10 )
-	{
-	    o = format("{}\n", o);
-	    col = pw;
-	}
-	else if ( b == 9 )
-	{
-	    long next = (col / 8 + 1) * 8;
-	    o = format("{}{}", o, php::str_repeat(" ", next - col));
-	    col = next;
-	}
-    }
-    if ( n > from )
-	o = format("{}{}", o, perl::substr(t, from, n - from));
-    out = o;
 }
 
 // Where an event goes while a console's input has the keyboard.
@@ -10808,28 +10758,14 @@ void IdeSession::compose_ide_tree(var &root, long doc)
     ui::get(pt, w, es, "presence_theme");
     if ( !pt.is_null() && php::count(pt) > 0 )
 	rh["presence"] = pt;
-    // The chrome's colours (facelift S2-S4): the scheme's divider, gutter,
-    // gutter_current, current_line, tab, tab_active, statusbar and menu
-    // (menubar, menu, menu_selected, menu_hot, shadow), toolbar and floating
-    // window (dialog, list_selected, field, button_primary) specs, as
-    // the grid paints them (tui_chrome's names); a
-    // scheme that names none leaves the grid's defaults. A hint the window
-    // ignores (its chrome is page.css's).
-    var th;
-    ui::get(th, w, es, "theme");
-    if ( !th.is_null() )
-    {
-	var chrome;		// a null var becomes the map on its first keyed write
-	var names = { "divider", "gutter", "gutter_current", "current_line",
-		      "tab", "tab_active", "statusbar", "menubar", "menu",
-		      "menu_selected", "menu_hot", "shadow", "toolbar",
-		      "dialog", "list_selected", "field", "button_primary" };
-	for ( var cn : names )
-	    if ( !th[cn.c_str()].is_null() )
-		chrome[cn.c_str()] = th[cn.c_str()];
-	if ( !chrome.is_null() )
-	    rh["chrome"] = chrome;
-    }
+    // The chrome's colours (facelift S2-S4): the pieces the scheme names, as
+    // madc's theme reader keeps them (madc::theme_styles' chrome, by
+    // tui_chrome's names); a scheme that names none leaves the grid's
+    // defaults. A hint the window ignores (its chrome is page.css's).
+    var chrome;
+    ui::get(chrome, w, es, "theme_chrome");
+    if ( !chrome.is_null() && php::count(chrome) > 0 )
+	rh["chrome"] = chrome;
     // The menu / command data (S1): the bar's menus with their items'
     // ids, titles and enablement — a chrome-rendering client (S2) draws it
     // natively, a terminal on its top row (facelift S4): held there when
@@ -10906,14 +10842,17 @@ bool init_view_es(long w, long es, long doc, const char *path,
     load_status(w, es, sw.c_str());	// the status FORMAT rides the profile
     var tw;
     bundle_word(tw, w, es, cbTHEME);
-    if ( !load_theme(w, es, tw.c_str()) )
+    var twhy;
+    if ( !load_theme(w, es, tw.c_str(), twhy) )
     {
+	var lost = strlen(twhy.c_str()) > 0
+	    ? format("Theme '{}' refused ({})", tw, twhy) : format("No theme '{}'", tw);
 	var dt;
 	base_word(dt, w, es, cbTHEME);
 	if ( dt != tw && load_theme(w, es, dt.c_str()) )
-	    ui::set(w, es, "msg", format("No theme '{}' — the default theme '{}' is in use.", tw, dt));
+	    ui::set(w, es, "msg", format("{} — the default theme '{}' is in use.", lost, dt));
 	else
-	    ui::set(w, es, "msg", format("No theme '{}' — colours off.", tw));
+	    ui::set(w, es, "msg", format("{} — colours off.", lost));
     }
     var mw;
     bundle_word(mw, w, es, cbMENU);

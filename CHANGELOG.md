@@ -34,12 +34,14 @@ buffer. Gate: `tests/testmadcide_replrunall`.
 
 ### Syntax colour in the REPL pane
 
-The REPL pane now paints code in colour, as the CLI's REPL does: the input as
-it is typed and each taken entry echoed into the transcript carry the theme's
-span rows (`madc::lex_spans`, the editor's own classes and theme). A taken
-entry's coloured runs join the terminal screen's (`termspans`) placed at the
-bytes the screen keeps them, so they survive the transcript's trimming. Gate:
-`tests/testmadcide_repl` (the `colour:` line).
+The REPL pane paints code in colour, as the CLI's REPL does. The transcript's
+code — a printed line (`:%p`), a `%type` type, and each taken entry echoed
+into it — is painted by madc's own painter (`madc::theme_paint`) over the
+scheme the IDE loads through the CLI's theme reader (`madc::theme_styles`), so
+a colon command's output is coloured exactly as `madc -i` colours it; the
+painter's SGR becomes the terminal screen's coloured runs. The input, as it is
+typed, keeps the editor's own span colouring (`madc::lex_spans`). Gate:
+`tests/testmadcide_repl` (the `repl colon colour:` line).
 
 ## [0.7.0] — 2026-10-12
 

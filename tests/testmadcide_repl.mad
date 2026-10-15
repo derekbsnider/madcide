@@ -452,6 +452,20 @@ int main()
 	    rust::contains(got.c_str(), "\nquad(3)\n") != 0,
 	    rust::contains(rbt.c_str(), "\nquad(3)\nint added = 1;\n") != 0,
 	    rust::contains(got.c_str(), "colon-mode command") == 0);
+    // :1p prints the file's line as `madc -i` does — in colour, through
+    // madc's own painter (the ex run's shown_code, madc::theme_paint): the
+    // screen keeps the painted `int` as a coloured run.
+    var ttx;
+    ui::text(ttx, w, repl_doc(w, es));
+    var tsp;
+    ui::get(tsp, w, repl_doc(w, es), "termspans");
+    long qline = perl::rindex(ttx.c_str(), "\nint quad(int v)") + 1;
+    long painted_int = 0;
+    if ( qline > 0 && !tsp.is_null() )
+	for ( var sp : tsp )
+	    if ( sp["s"].as_integer() == qline && sp["e"].as_integer() == qline + 3 )
+		painted_int = painted_int + 1;
+    println("repl colon colour: printed int={}", painted_int > 0);
     // The live reparse (owner 2026-10-12): an edit colon mode makes to the
     // REPL buffer takes effect at once — an added definition is defined, a
     // changed one initialized again, and no statement runs again.

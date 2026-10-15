@@ -132,38 +132,51 @@ void repl_feed(long w, long es, const char *text)
 	term_feed_text(w, repl_doc(w, es), t.c_str());
 }
 
+// Text the transcript shows as `madc -i` prints it: its code (`code`, a
+// reply's shown_code — :%p's lines, %type's type, a taken entry) painted by
+// madc's own painter (madc::theme_paint: the scheme's text, the session's
+// standard) — the screen turns its SGR into the transcript's colours — the
+// rest as it is. No code, or no scheme loaded (colours off): as it is.
+void repl_painted(var &out, long w, long es, const char *text, var &code)
+{
+    var t = text;			// ring discipline
+    var tt;
+    ui::get(tt, w, es, "theme_text");
+    if ( code.is_null() || tt.is_null() )
+    {
+	out = t;
+	return;
+    }
+    long h = es_int(w, es, "replh", 0);
+    long standard = madc::file_kind_of(madc::session_standard(h));
+    madc::theme_paint(out, tt.c_str(), t.c_str(), code, standard);
+}
+
+// A reply's shown text (a value, %type's type) on its own line, painted.
+void repl_feed_shown(long w, long es, var &r)
+{
+    var sv = r["shown"];
+    if ( strlen(sv.c_str()) == 0 )
+	return;
+    var sc = r["shown_code"];
+    var pv;
+    repl_painted(pv, w, es, sv.c_str(), sc);
+    repl_feed(w, es, format("{}\n", pv));
+}
+
 // A taken entry into the transcript as the input showed it: the prompt and
-// its lines, in the input's colour — its themed rows join the screen's
-// coloured runs (termspans), which the screen keeps through its trimming.
+// its lines, the entry's code painted as the CLI's echo is.
 void repl_feed_entry(long w, long es, const char *prompt, const char *entry)
 {
     var p = prompt;			// ring discipline: both owned first
     var e = entry;
-    long tdoc = repl_doc(w, es);
-    // The screen column the entry starts at: output that ended mid-line
-    // leaves the prompt after it.
-    var before;
-    ui::text(before, w, tdoc);
-    const char *bs = before.c_str();
-    const char *nl = strrchr(bs, '\n');
-    long col0 = nl == 0 ? strlen(bs) : strlen(nl + 1);
-    var code;
-    console_screen_text(code, col0, p.c_str(), e.c_str());
+    var code = {};
+    code[] = { "from": 0, "to": strlen(e.c_str()) };
+    var painted;
+    repl_painted(painted, w, es, e.c_str(), code);
     var shown;
-    console_entry_display(shown, p.c_str(), code.c_str());
+    console_entry_display(shown, p.c_str(), painted.c_str());
     repl_feed(w, es, format("{}\n", shown));
-    // The entry ends the screen's text: its rows are placed from the end.
-    var after;
-    ui::text(after, w, tdoc);
-    long base = strlen(after.c_str()) - strlen(shown.c_str()) - 1;
-    if ( base < 0 )
-	return;
-    var spans;
-    ui::get(spans, w, tdoc, "termspans");
-    if ( spans.is_null() )
-	spans = {};
-    console_code_spans(spans, w, es, p.c_str(), code.c_str(), base);
-    ui::set(w, tdoc, "termspans", spans);
 }
 
 // The whole input replaced (history recall, a taken entry's clearing).
@@ -409,9 +422,7 @@ void repl_reply(long w, long es, var &r)
     if ( runall && r["kind"] == madc::session_reply::replayed )
     {
 	// Its value and diagnostics; the REPL buffer holds it already.
-	var sv = r["shown"];
-	if ( strlen(sv.c_str()) > 0 )
-	    repl_feed(w, es, format("{}\n", sv));
+	repl_feed_shown(w, es, r);
 	var rd = r["rendered"];
 	repl_feed(w, es, rd.c_str());
 	repl_problems(w, es, r);
@@ -474,9 +485,7 @@ void repl_reply(long w, long es, var &r)
 	    return;
 	}
 	repl_buffer_keep(w, es, r);
-	var sv = r["shown"];
-	if ( strlen(sv.c_str()) > 0 )
-	    repl_feed(w, es, format("{}\n", sv));
+	repl_feed_shown(w, es, r);
 	if ( seq == es_int(w, es, "replhelpseq", 0) )
 	{
 	    // %help: the IDE's own commands follow the session's.
@@ -807,7 +816,10 @@ bool repl_colon_outcome(long w, long es, var &r)
 	return true;
     }
     var shown = r["shown"];
-    repl_feed(w, es, shown.c_str());
+    var sc = r["shown_code"];		// the buffer's lines it printed
+    var pv;
+    repl_painted(pv, w, es, shown.c_str(), sc);
+    repl_feed(w, es, pv.c_str());
     if ( !r["ok"].as_boolean() )
 	repl_feed(w, es, format("{}\n", r["error"]));
     long cur = ex->current();
@@ -938,9 +950,7 @@ bool repl_enter(long w, long es)
 	// as a taken entry does, and runs here, never in the session.
 	var p;
 	repl_prompt(p, w, es);
-	var shown;
-	console_entry_display(shown, p.c_str(), text.c_str());
-	repl_feed(w, es, format("{}\n", shown));
+	repl_feed_entry(w, es, p.c_str(), text.c_str());
 	repl_history_push(w, es, text.c_str());
 	repl_set_input(w, es, "");
 	var arg = query["argument"];
