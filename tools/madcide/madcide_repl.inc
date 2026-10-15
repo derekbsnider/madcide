@@ -132,6 +132,40 @@ void repl_feed(long w, long es, const char *text)
 	term_feed_text(w, repl_doc(w, es), t.c_str());
 }
 
+// A taken entry into the transcript as the input showed it: the prompt and
+// its lines, in the input's colour — its themed rows join the screen's
+// coloured runs (termspans), which the screen keeps through its trimming.
+void repl_feed_entry(long w, long es, const char *prompt, const char *entry)
+{
+    var p = prompt;			// ring discipline: both owned first
+    var e = entry;
+    long tdoc = repl_doc(w, es);
+    // The screen column the entry starts at: output that ended mid-line
+    // leaves the prompt after it.
+    var before;
+    ui::text(before, w, tdoc);
+    const char *bs = before.c_str();
+    const char *nl = strrchr(bs, '\n');
+    long col0 = nl == 0 ? strlen(bs) : strlen(nl + 1);
+    var code;
+    console_screen_text(code, col0, p.c_str(), e.c_str());
+    var shown;
+    console_entry_display(shown, p.c_str(), code.c_str());
+    repl_feed(w, es, format("{}\n", shown));
+    // The entry ends the screen's text: its rows are placed from the end.
+    var after;
+    ui::text(after, w, tdoc);
+    long base = strlen(after.c_str()) - strlen(shown.c_str()) - 1;
+    if ( base < 0 )
+	return;
+    var spans;
+    ui::get(spans, w, tdoc, "termspans");
+    if ( spans.is_null() )
+	spans = {};
+    console_code_spans(spans, w, es, p.c_str(), code.c_str(), base);
+    ui::set(w, tdoc, "termspans", spans);
+}
+
 // The whole input replaced (history recall, a taken entry's clearing).
 void repl_set_input(long w, long es, const char *text)
 {
@@ -369,9 +403,7 @@ void repl_reply(long w, long es, var &r)
 	var entry = r["entry"];
 	var p;
 	repl_prompt(p, w, es);
-	var shown;
-	console_entry_display(shown, p.c_str(), php::rtrim(entry.c_str()));
-	repl_feed(w, es, format("{}\n", shown));
+	repl_feed_entry(w, es, p.c_str(), php::rtrim(entry.c_str()));
 	return;
     }
     if ( runall && r["kind"] == madc::session_reply::replayed )
@@ -405,9 +437,7 @@ void repl_reply(long w, long es, var &r)
 	ui::get(sent, w, es, "replsent");
 	var p;
 	repl_prompt(p, w, es);
-	var shown;
-	console_entry_display(shown, p.c_str(), sent.c_str());
-	repl_feed(w, es, format("{}\n", shown));
+	repl_feed_entry(w, es, p.c_str(), sent.c_str());
 	repl_history_push(w, es, sent.c_str());
 	repl_set_input(w, es, "");
 	ui::set(w, es, "replrunning", 1);

@@ -32,6 +32,15 @@ the Program arguments as its argv (`madc::session_rebuild`, madc 0.105.0).
 The REPL buffer stays as it is; F5 and `%run` keep running the editor's
 buffer. Gate: `tests/testmadcide_replrunall`.
 
+### Syntax colour in the REPL pane
+
+The REPL pane now paints code in colour, as the CLI's REPL does: the input as
+it is typed and each taken entry echoed into the transcript carry the theme's
+span rows (`madc::lex_spans`, the editor's own classes and theme). A taken
+entry's coloured runs join the terminal screen's (`termspans`) placed at the
+bytes the screen keeps them, so they survive the transcript's trimming. Gate:
+`tests/testmadcide_repl` (the `colour:` line).
+
 ## [0.7.0] — 2026-10-12
 
 madcide's first release as a standalone repository. madcide — the IDE and the

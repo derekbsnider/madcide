@@ -1954,6 +1954,23 @@ void spans_to_hspans(long w, long es, long doc, var &rows, long dest)
     ui::set(w, dest, "hspans", hs);
 }
 
+// One classified run as a themed span row at byte `s`: none for a plain
+// identifier or a class the scheme leaves plain. The one rule every colouring
+// shares — a document's rows (span_rows_append), a console's code
+// (console_code_spans).
+void themed_span_append(var &hs, var &th, var &cls, long s, long len)
+{
+    if ( cls == "ident" )
+	return;				// a plain identifier: styled by no scheme
+    var c;
+    if ( !th.is_null() )
+	c = th[cls.c_str()];
+    if ( c.is_null() )
+	return;				// a class this scheme leaves plain
+    // "k": the span's class as a code (the line re-lex reads it)
+    hs[] = { "s": s, "e": s + len, "c": c, "k": lsp_token_of_class(cls) };
+}
+
 // The converter's body: `rows` appended to `hs`, each row's line counted
 // from `line0` + 1 (0 = the rows address the whole buffer; a line re-lex's
 // rows address its first line as 1 — colour_relex_lines).
@@ -1965,19 +1982,12 @@ void span_rows_append(var &hs, long w, long es, long doc, var &rows, long line0)
     {
 	var cls = r["class"];
 	if ( cls == "ident" )
-	    continue;			// a plain identifier: styled by no scheme
-	var c;
-	if ( !th.is_null() )
-	    c = th[cls.c_str()];
-	if ( c.is_null() )
-	    continue;			// a class this scheme leaves plain
+	    continue;			// styled by no scheme: no line lookup
 	long ls = ui::text_line_start(w, doc, line0 + r["line"].as_integer());
 	if ( ls < 0 )
 	    continue;			// a stale line (edited since the parse)
-	long s = ls + r["column"].as_integer();
-	// "k": the span's class as a code (the line re-lex reads it)
-	hs[] = { "s": s, "e": s + r["length"].as_integer(), "c": c,
-		 "k": lsp_token_of_class(cls) };
+	themed_span_append(hs, th, cls, ls + r["column"].as_integer(),
+			   r["length"].as_integer());
     }
 }
 
@@ -6658,6 +6668,86 @@ long console_display_caret(const char *prompt, const char *text, long caret)
     return pl + caret + nl * pl;
 }
 
+// A console's code in colour (the CLI's REPL paints what is typed): the
+// text's lexical classes (madc::lex_spans, the editor's first paint) as
+// themed span rows, each at its byte in the text's display
+// (console_entry_display) plus `base`.
+void console_code_spans(var &hs, long w, long es, const char *prompt,
+			const char *text, long base)
+{
+    var t = text;			// ring discipline
+    var p = prompt;
+    var rows;
+    madc::lex_spans(rows, t.c_str(), "REPL");
+    if ( rows.is_null() || php::count(rows) == 0 )
+	return;
+    const char *s = t.c_str();
+    var starts = {};			// each line's first byte (rows are line/column)
+    starts[] = 0;
+    long n = strlen(s);
+    for ( long i = 0; i < n; i = i + 1 )
+	if ( s[i] == '\n' )
+	    starts[] = i + 1;
+    long nlines = php::count(starts);
+    var th;
+    ui::get(th, w, es, "theme");
+    for ( var r : rows )
+    {
+	var cls = r["class"];
+	long li = r["line"].as_integer() - 1;
+	if ( li < 0 || li >= nlines )
+	    continue;
+	long off = starts[li].as_integer() + r["column"].as_integer();
+	themed_span_append(hs, th, cls,
+			   base + console_display_caret(p.c_str(), s, off),
+			   r["length"].as_integer());
+    }
+}
+
+// An entry's text as a console's terminal screen keeps it (ui::term_feed):
+// each tab expanded to the screen's stop (every 8 of its byte columns, the
+// first line starting after the prompt at screen column `col0` — the others
+// after the continuation pad of the prompt's width, console_entry_display),
+// the other control bytes but the new-line dropped — so what is fed is what
+// the screen holds, byte for byte.
+void console_screen_text(var &out, long col0, const char *prompt, const char *text)
+{
+    var p = prompt;			// ring discipline
+    var t = text;
+    const char *s = t.c_str();
+    long pw = ui::text_columns(p.c_str());
+    long col = col0 + strlen(p.c_str());
+    var o = "";
+    long n = strlen(s);
+    long from = 0;			// the run of plain bytes not yet copied
+    for ( long i = 0; i < n; i = i + 1 )
+    {
+	long b = s[i] & 255;
+	if ( b >= 32 && b != 127 )
+	{
+	    col = col + 1;
+	    continue;
+	}
+	if ( i > from )
+	    o = format("{}{}", o, perl::substr(t, from, i - from));
+	from = i + 1;
+	if ( b == 10 )
+	{
+	    o = format("{}\n", o);
+	    col = pw;
+	}
+	else if ( b == 9 )
+	{
+	    long next = (col / 8 + 1) * 8;
+	    o = format("{}{}", o, php::str_repeat(" ", next - col));
+	    col = next;
+	}
+    }
+    if ( n > from )
+	o = format("{}{}", o, perl::substr(t, from, n - from));
+    out = o;
+}
+
 // Where an event goes while a console's input has the keyboard.
 enum console_route : unsigned char { crPASS = 0, crHANDLED, crFIELD, crCOMMAND };
 
@@ -9826,6 +9916,17 @@ void console_node(var &out, long w, long es, long kind)
     long fin = console_doc(w, es, kind, "input");
     var content = tt;
     long caret = tlen;
+    // The colour: the transcript's coloured runs (the screen's, a taken
+    // entry's among them), then the input's as it is typed.
+    var spans = {};
+    if ( tdoc != 0 )
+    {
+	var tsp;
+	ui::get(tsp, w, tdoc, "termspans");
+	if ( !tsp.is_null() )
+	    for ( var r : tsp )
+		spans[] = r;
+    }
     if ( fin != 0 && console_editable(w, es, kind) )
     {
 	var in;
@@ -9839,8 +9940,11 @@ void console_node(var &out, long w, long es, long kind)
 	console_entry_display(disp, p.c_str(), in.c_str());
 	content = format("{}{}", tt, disp);
 	caret = tlen + console_display_caret(p.c_str(), in.c_str(), field_caret(w, fin));
+	console_code_spans(spans, w, es, p.c_str(), in.c_str(), tlen);
     }
     var hints = { "caret": caret, "console": 1 };
+    if ( php::count(spans) > 0 )
+	hints["spans"] = spans;
     if ( es_int(w, es, "consolefocus", 0) == kind )
     {
 	hints["focus"] = 1;

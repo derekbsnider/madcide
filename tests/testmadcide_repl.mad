@@ -108,6 +108,7 @@ int main()
     builtins_activate(w, es);	// madcide's own modules, as IdeSession::open activates them
     ui::set(w, es, "profile_dir", "tools/madcide/profiles");
     ui::set(w, es, "profile", "joe");
+    load_theme(w, es, "default");	// the code's colours (pinned in 6)
     ui::set(w, lang_world(w), "std", (long)madc::fkC11);	// as --std=c11 sets it
     IdeSession S;
     S.attach(w, es);
@@ -233,6 +234,24 @@ int main()
     println("compose: ends={} caret at end={} focus={} subject is input={}",
 	    js::stringify(tail), hints["caret"] == clen,
 	    hints["focus"], node["subject"] == repl_input_doc(w, es));
+    // The code in colour, as the CLI's REPL paints it: the typed input and
+    // the entries echoed into the transcript both carry themed span rows.
+    long istart = clen - strlen("1 +");
+    long in_spans = 0;
+    long int_spans = 0;
+    var hs = hints["spans"];
+    if ( !hs.is_null() )
+	for ( var r : hs )
+	{
+	    long rs = r["s"].as_integer();
+	    long re = r["e"].as_integer();
+	    var piece = content.substr(rs, re - rs);
+	    if ( rs >= istart )
+		in_spans = in_spans + 1;
+	    else if ( piece == "int" )
+		int_spans = int_spans + 1;
+	}
+    println("colour: input={} transcript int={}", in_spans > 0, int_spans > 0);
     ev_key(e, "^]");
     S.apply_ide_event(doc, e);
     println("unfocus: focus={}", repl_focused(w, es));
