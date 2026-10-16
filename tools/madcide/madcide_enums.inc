@@ -418,18 +418,6 @@ bool event_kind_ok(long kind)
 // key; the plugin keeps it current.
 enum view_shape : unsigned char { vsROWS = 0, vsCONSOLE };
 
-enum ide_projkind : unsigned char { pkCONSOLE = 0, pkGUI };
-const char *projkind_name(long k)
-{
-    return k == pkGUI ? "gui" : "console";
-}
-long projkind_of(var &k)
-{
-    if ( k.is_null() )
-	return pkCONSOLE;
-    return k == "gui" ? pkGUI : pkCONSOLE;
-}
-
 // A build row's run mode — the manifest command's `mode` word (capture |
 // terminal) converted where the rows are built.
 enum ide_bmode : unsigned char { bmCAPTURE = 0, bmTERMINAL };

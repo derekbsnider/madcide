@@ -3357,7 +3357,6 @@ void proj_add(long w, long es, long doc, const char *path0);
 void proj_open(long w, long es, long doc, const char *path0);	// polish P2b: Open Project… (the prompt commits through it)
 void switch_buffer(long w, long es, long olddoc, long idx);	// polish P4: the bufsel prompt commits through it
 bool project_active(long w, long es);
-bool proj_write(long w, long es, long doc);	// polish P2c: the kind toggle persists
 void proj_show(long w, long es, long doc);	// polish P2b: Open Project… shows the window
 void project_rows(long w, long es, long doc);
 // The vi colon line (defined after the verbs it reaches): madc's colon
@@ -5099,9 +5098,10 @@ bool untitled_refused(long w, long es, long doc, const char *what)
     return true;
 }
 
-// The project's TUs as {path, ti} rows (ti = the tus-array index; -1 =
-// the implicit TU). A native TU entry is a bare string or an object
-// carrying "file" — only that field is interpreted here; the rest rides.
+// The project's TUs as {path} rows: the open manifest's, each TU's file as
+// madc's reader resolves it (against the manifest's directory, as the
+// --project lane reads it); without a manifest the launch file, the implicit
+// project's one TU.
 void proj_tu_rows(var &out, long w, long es, long doc)
 {
     var rows = {};
@@ -5113,42 +5113,48 @@ void proj_tu_rows(var &out, long w, long es, long doc)
 	{
 	    var lp;
 	    proj_launch_path(lp, w, es, doc);
-	    rows[] = { "path": lp, "ti": -1 };
+	    rows[] = { "path": lp };
 	}
 	out = rows;
 	return;
     }
     var tus = proj["tus"];
-    long i = 0;
     for ( var t : tus )
-    {
-	// A bare string IS the file; an object TU names its file. The
-	// kind question comes FIRST — a keyed access on a scalar is a
-	// script error by design (madarray_key_slot). (An if/else, not a
-	// ternary: carrier-armed ternaries are a banked lowering gap.)
-	var tp;
-	if ( t.is_string() )
-	    tp = t;
-	else
-	    tp = t["file"];
-	rows[] = { "path": tp, "ti": i };
-	i = i + 1;
-    }
+	rows[] = { "path": t["file"] };
     out = rows;
 }
 
-// The project's KIND (polish P2c): the manifest's "kind" — console
-// (absent) or gui. It decides the Windows executable's subsystem on a
+// The project's KIND (polish P2c): the manifest's "kind" as madc's reader
+// gives it — a madc::project_kind code (<bits/project_enums>); console
+// without a manifest. It decides the Windows executable's subsystem on a
 // project build (the engine reads the manifest itself) and where Run sends
-// the program's output. The manifest's word converts HERE (ide_projkind).
-long proj_kind(long w, long es)
+// the program's output.
+madc::project_kind proj_kind(long w, long es)
 {
     var proj;
     ui::get(proj, w, es, "proj");
     if ( proj.is_null() )
-	return pkCONSOLE;
-    var k = proj["kind"];
-    return projkind_of(k);
+	return madc::project_kind::console;
+    return static_cast<madc::project_kind>(proj["kind"].as_integer());
+}
+
+// The open manifest read again after a madc verb wrote it (madc's one reader
+// and writer, project_manifest_*): the bag's "proj" replaced, the generation
+// bumped. False, with the reason on the status line, when it no longer reads.
+bool proj_reload(long w, long es)
+{
+    var pf;
+    ui::get(pf, w, es, "projfile");
+    var m;
+    var err;
+    if ( !madc::project_manifest_read(m, err, pf.c_str()) )
+    {
+	ui::set(w, es, "msg", format("{}: {}.", pf, err));
+	return false;
+    }
+    ui::set(w, es, "proj", m);
+    proj_touch(w, es);
+    return true;
 }
 
 // "A manifest is OPEN" is proj_has_manifest, defined with the path helpers at
@@ -5156,8 +5162,9 @@ long proj_kind(long w, long es)
 // layer).
 
 // The change-log file beside the manifest (client-server arc V4; design doc
-// S2.4): <base>.prj.events, a sibling of the layout cache. Only once a
-// manifest is open -- the implicit single-file project is memory-only (the
+// S2.4): <base>.prj.events, a sibling of the layout cache — madc's rule
+// (madc::project_events_path, the one `madc --mcp --project` binds). Only once
+// a manifest is open -- the implicit single-file project is memory-only (the
 // no-surprise-artifact law, design S6). false = no manifest.
 bool proj_events_path(var &out, long w, long es)
 {
@@ -5165,9 +5172,7 @@ bool proj_events_path(var &out, long w, long es)
 	return false;
     var pf;
     ui::get(pf, w, es, "projfile");
-    var base;
-    madc::path_drop_extension(base, pf.c_str());
-    out = format("{}.events", base);
+    madc::project_events_path(out, pf.c_str());
     return true;
 }
 
@@ -5236,20 +5241,24 @@ void proj_memory_bind(long w, long es)
 // with the reason (its manifest materializes on the second file).
 void proj_toggle_kind(long w, long es, long doc)
 {
-    var proj;
-    ui::get(proj, w, es, "proj");
-    if ( proj.is_null() )
+    if ( !proj_has_manifest(w, es) )
     {
 	ui::set(w, es, "msg",
 		"No project manifest yet — add a second file (^K I) first.");
 	return;
     }
-    long nk = proj_kind(w, es) == pkCONSOLE ? pkGUI : pkCONSOLE;
-    proj["kind"] = projkind_name(nk);	// the manifest file's word
-    ui::set(w, es, "proj", proj);
-    proj_touch(w, es);
-    if ( proj_write(w, es, doc) )
-	ui::set(w, es, "msg", format("Project kind: {}.", projkind_name(nk)));
+    madc::project_kind nk = proj_kind(w, es) == madc::project_kind::console
+	? madc::project_kind::gui : madc::project_kind::console;
+    var pf;
+    ui::get(pf, w, es, "projfile");
+    var err;
+    if ( !madc::project_manifest_set_kind(err, pf.c_str(), nk) )
+    {
+	ui::set(w, es, "msg", format("{}: {}.", pf, err));
+	return;
+    }
+    if ( proj_reload(w, es) )
+	ui::set(w, es, "msg", format("Project kind: {}.", madc::project_kind_name(nk)));
 }
 
 bool proj_member(long w, long es, long doc, const char *path)
@@ -5265,39 +5274,39 @@ bool proj_member(long w, long es, long doc, const char *path)
     return false;
 }
 
-// Persist the manifest — IMMEDIATELY (no dirty-manifest state, the owner
-// default). The first write derives the default path (<base>.prj.json
-// beside the launch file) and announces the materialization on the
-// status line.
-bool proj_write(long w, long es, long doc)
+// The implicit project's manifest MATERIALIZES (the second file's projadd):
+// <base>.prj.json beside the launch file, made and given the launch file as
+// its first TU by madc's writer (madc::project_manifest_create / _add_tu —
+// persisted at once, no dirty-manifest state), read back, announced on the
+// status line, and bound to the project memory. False, with the reason on
+// the status line, when it cannot be (an untitled launch; a file of that name
+// already there is never overwritten).
+bool proj_materialize(long w, long es, long doc)
 {
-    var proj;
-    ui::get(proj, w, es, "proj");
-    var pf;
-    ui::get(pf, w, es, "projfile");
-    bool fresh = !proj_has_manifest(w, es);
-    if ( fresh && launch_untitled_refused(w, es, doc) )
+    if ( launch_untitled_refused(w, es, doc) )
 	return false;
-    if ( fresh )
+    var lp;
+    proj_launch_path(lp, w, es, doc);
+    var base;
+    madc::path_drop_extension(base, lp.c_str());
+    var pf = format("{}.prj.json", base);
+    var err;
+    if ( !madc::project_manifest_create(err, pf.c_str()) )
     {
-	var lp;
-	proj_launch_path(lp, w, es, doc);
-	var base;
-	madc::path_drop_extension(base, lp.c_str());
-	pf = format("{}.prj.json", base);
-	ui::set(w, es, "projfile", pf);
-    }
-    var txt = format("{}\n", js::stringify(proj, 2));
-    if ( php::file_put_contents(pf.c_str(), txt.c_str()) < 0 )
-    {
-	ui::set(w, es, "msg", format("Cannot write {}.", pf));
+	ui::set(w, es, "msg", format("{}: {}.", pf, err));
 	return false;
     }
-    if ( fresh )
+    if ( !madc::project_manifest_add_tu(err, pf.c_str(), lp.c_str()) )
     {
-	ui::set(w, es, "msg", format("Project file created: {}", pf));
-	proj_memory_bind(w, es);	// its events file takes the session's log
+	php::unlink(pf.c_str());	// no half-made manifest left behind
+	ui::set(w, es, "msg", format("{}: {}.", pf, err));
+	return false;
     }
+    ui::set(w, es, "projfile", pf);
+    if ( !proj_reload(w, es) )
+	return false;
+    ui::set(w, es, "msg", format("Project file created: {}", pf));
+    proj_memory_bind(w, es);	// its events file takes the session's log
     return true;
 }
 
@@ -5353,32 +5362,21 @@ void proj_add(long w, long es, long doc, const char *path0)
 	ui::set(w, es, "msg", format("Already in the project: {}", p));
 	return;
     }
-    var proj;
-    ui::get(proj, w, es, "proj");
-    if ( proj.is_null() )
-    {
-	if ( launch_untitled_refused(w, es, doc) )
-	    return;
-	var np;
-	var lp;
-	proj_launch_path(lp, w, es, doc);
-	var tus = {};
-	tus.push(lp);
-	tus.push(p);
-	np["tus"] = tus;
-	np["entry"] = "main";
-	proj = np;
-    }
-    else
-    {
-	var tus = proj["tus"];
-	tus.push(p);
-	proj["tus"] = tus;
-    }
-    ui::set(w, es, "proj", proj);
-    proj_touch(w, es);
+    // madc's writer names the file as the manifest names its TUs (relative
+    // to the manifest's directory below it) and refuses a path that is no
+    // file; the implicit project's manifest materializes first.
     bool had = proj_has_manifest(w, es);
-    if ( proj_write(w, es, doc) && had )
+    if ( !had && !proj_materialize(w, es, doc) )
+	return;
+    var pf;
+    ui::get(pf, w, es, "projfile");
+    var err;
+    if ( !madc::project_manifest_add_tu(err, pf.c_str(), p.c_str()) )
+    {
+	ui::set(w, es, "msg", format("Cannot add {}: {}.", p, err));
+	return;
+    }
+    if ( proj_reload(w, es) && had )
 	ui::set(w, es, "msg", format("Added {} to the project.", p));
 }
 
@@ -5408,9 +5406,7 @@ void proj_del(long w, long es, long doc, long option)
 	ui::set(w, es, "msg", format("Not in the project: {}", row["path"]));
 	return;
     }
-    var proj;
-    ui::get(proj, w, es, "proj");
-    if ( proj.is_null() )
+    if ( !proj_has_manifest(w, es) )
     {
 	// The implicit project has no manifest to edit — its one TU is
 	// the session's own launch file.
@@ -5418,60 +5414,43 @@ void proj_del(long w, long es, long doc, long option)
 		"No project file yet (ins adds a file, creating it).");
 	return;
     }
-    long ti = row["ti"].as_integer();
-    var tus = proj["tus"];
-    var rebuilt = {};
-    long i = 0;
-    for ( var t : tus )
-    {
-	if ( i != ti )
-	    rebuilt.push(t);
-	i = i + 1;
-    }
-    proj["tus"] = rebuilt;
-    ui::set(w, es, "proj", proj);
-    proj_touch(w, es);
-    if ( proj_write(w, es, doc) )
-	ui::set(w, es, "msg",
-		format("Removed {} from the project.", row["path"]));
+    var pf;
+    ui::get(pf, w, es, "projfile");
+    var rp = row["path"];
+    var err;
+    if ( !madc::project_manifest_remove_tu(err, pf.c_str(), rp.c_str()) )
+	ui::set(w, es, "msg", format("Cannot remove {}: {}.", rp, err));
+    else if ( proj_reload(w, es) )
+	ui::set(w, es, "msg", format("Removed {} from the project.", rp));
     project_rows(w, es, doc);
 }
 
-// THE manifest reader (polish P2b factored it out of the startup read so
-// File -> Open Project… and run_ide's startup are ONE reader): load the
-// manifest at `pf` onto the bag ("proj" + "projfile"), bump the project
-// generation, announce. Malformed content refuses LOUD and leaves the
-// session as it was. False = not loaded (the message says why).
+// THE manifest load (polish P2b factored it out of the startup read so
+// File -> Open Project… and run_ide's startup are ONE reader): the manifest
+// at `pf`, read by madc's reader (madc::project_manifest_read — the file the
+// --project lane reads, read as it reads it), onto the bag ("proj" +
+// "projfile"), the project generation bumped, announced. What madc refuses
+// (malformed JSON, no "tus", an unknown kind word) refuses LOUD with madc's
+// reason and leaves the session as it was. False = not loaded (the message
+// says why).
 bool proj_load(long w, long es, var &pf)
 {
-    var txt;
-    if ( !php::file_get_contents(txt, pf.c_str()) )
-    {
-	ui::set(w, es, "msg", format("Cannot read {}.", pf));
-	return false;
-    }
     var proj;
-    if ( !js::parse(proj, txt) )
+    var err;
+    if ( !madc::project_manifest_read(proj, err, pf.c_str()) )
     {
-	ui::set(w, es, "msg", format("{} is not valid JSON.", pf));
+	ui::set(w, es, "msg", format("{}: {}.", pf, err));
 	return false;
     }
-    if ( !proj.is_object() )
+    if ( !proj["json"].is_object() )
     {
-	// Valid JSON but not the native OBJECT shape (a scalar, or a
-	// compile_commands array — the read-only import is --project's
-	// lane, not the window's).
+	// A compile_commands.json array reads (the --project lane's
+	// read-only import) but is not the window's: madc never writes it.
 	ui::set(w, es, "msg",
 		format("{} is not a madc project manifest.", pf));
 	return false;
     }
     var tus = proj["tus"];
-    if ( tus.is_null() )
-    {
-	ui::set(w, es, "msg",
-		format("{} has no \"tus\" — not a project manifest.", pf));
-	return false;
-    }
     ui::set(w, es, "proj", proj);
     ui::set(w, es, "projfile", pf);
     proj_touch(w, es);
@@ -5579,7 +5558,7 @@ void project_rows(long w, long es, long doc)
 		    mk = "*";
 	    }
 	}
-	rows[] = { "path": p, "tag": "prj", "ti": tr["ti"],
+	rows[] = { "path": p, "tag": "prj",
 		   "content": format("p{} {}", mk, p) };
     }
     // [open] — buffers not in the project, dirty-marked.
@@ -7252,7 +7231,7 @@ void run_buffer(long w, long es, long doc)
 	var rp;
 	doc_name(rp, w, doc);
 	var title = format("Run {}", rp);
-	if ( proj_kind(w, es) == pkGUI )
+	if ( proj_kind(w, es) == madc::project_kind::gui )
 	{
 	    var uri = format("madcrun://{}", h);
 	    start_capture(w, es, title.c_str(), uri.c_str());
@@ -7455,7 +7434,7 @@ void run_project(long w, long es, long doc)
 	// A window: the --project JIT lane in a child — the Terminal tab
 	// for a console project, Output for a gui one (the kind).
 	var title = format("Run project {}", pf);
-	if ( proj_kind(w, es) == pkGUI )
+	if ( proj_kind(w, es) == madc::project_kind::gui )
 	{
 	    var uri = format("madcproj://{}", pf);
 	    start_capture(w, es, title.c_str(), uri.c_str());
@@ -7515,14 +7494,12 @@ void ensure_build_cmds(long w, long es)
     var rows = {};
     if ( projected )
     {
-	// The project's OUTPUT: the manifest's `output` field, else the
-	// manifest's own base name.
+	// The project's OUTPUT: madc's rule (madc::project_default_output —
+	// the manifest's `output` against its directory, else its path less
+	// ".prj.json"), the executable `%project build` makes.
 	var pout;
-	var o = proj["output"];
-	if ( o.is_null() )
-	    madc::path_drop_extension(pout, pf.c_str());
-	else
-	    pout = format("{}", o);
+	var perr;
+	madc::project_default_output(pout, perr, pf.c_str());
 	rows[] = { "name": "Check project (in-process)",
 		   "act": cmdBLD_PROJ_CHECK };
 	rows[] = { "name": "Build project (in-process)", "kind": "exe",
@@ -7536,7 +7513,7 @@ void ensure_build_cmds(long w, long es)
 	// DATA, appended after the built-ins ({path}/{base}/{project}/
 	// {madc} substitute at choose time — build_subst). A malformed
 	// entry (not an object, no name/cmd) skips.
-	var cmds = proj["commands"];
+	var cmds = proj["json"]["commands"];	// the IDE's own key, as written
 	if ( !cmds.is_null() )
 	{
 	    for ( var c : cmds )
@@ -10551,7 +10528,7 @@ void IdeSession::compose_ide_tree(var &root, long doc)
 	    if ( proj_has_manifest(w, es) )
 	    {
 		rows[] = { "content": format("P Project kind {}",
-					     projkind_name(proj_kind(w, es))),
+					     madc::project_kind_name(proj_kind(w, es))),
 			   "act": cmdOPT_PROJKIND };
 	    }
 	    for ( var row : rows )

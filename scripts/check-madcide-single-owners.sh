@@ -159,6 +159,38 @@ if [ "$(count_config_dir_reads "$tmp")" -ne 1 ]; then
 fi
 rm -f "$tmp"
 
+# A project MANIFEST is madc's: its one reader and writer
+# (madc::project_manifest_read / _create / _add_tu / _remove_tu / _set_kind),
+# its kinds madc::project_kind (<bits/project_enums>). madcide's own copy
+# parsed and stringified the file itself, stored a TU as typed and made an
+# unknown kind word console. Marker: no js::parse / js::stringify of the
+# project object and no kind WORD written into it, anywhere in madcide's
+# dialect code.
+manifest_marker='js::(parse|stringify)\(proj\b|\["kind"\] = "'
+count_manifest_copies()
+{
+	cat "$@" | grep -cE "$manifest_marker"
+}
+
+n=$(count_manifest_copies $(dialect_sources))
+if [ "$n" -ne 0 ]; then
+	echo "check-madcide-single-owners: FAIL — $n hand-rolled manifest" \
+	     "read/write site(s) in madcide's dialect code (expected 0: a" \
+	     "manifest is madc::project_manifest_*)." >&2
+	grep -rnE "$manifest_marker" "$TOOLS" "$TEXTED" >&2
+	exit 1
+fi
+tmp=$(mktemp)
+printf '%s\n' '    var txt = format("{}\n", js::stringify(proj, 2));	// synthetic' \
+	'    proj["kind"] = "gui";	// synthetic' > "$tmp"
+if [ "$(count_manifest_copies "$tmp")" -ne 2 ]; then
+	rm -f "$tmp"
+	echo "check-madcide-single-owners: FAIL — negative control did not" \
+	     "detect a synthetic manifest read/write (the marker went blind)." >&2
+	exit 1
+fi
+rm -f "$tmp"
+
 # Negative control for the extension marker.
 tmp=$(mktemp)
 echo "    const char *dot = strrchr(pc, '.');	// synthetic" > "$tmp"
@@ -687,5 +719,6 @@ echo "check-madcide-single-owners: OK (one data-location owner: resolve_data_dir
      "validator seat: graph_edit_apply; one file-kind family reader: kind_family;" \
      "one active-plugin row writer: plugin_record_active; a path's extension:" \
      "madc::path_drop_extension / madc::path_stem; the user configuration" \
-     "directory: madc::user_config_dir)"
+     "directory: madc::user_config_dir; a project manifest:" \
+     "madc::project_manifest_*)"
 exit 0

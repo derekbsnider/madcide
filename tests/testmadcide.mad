@@ -796,7 +796,14 @@ int main()
     ev_key(e, "enter");
     S.apply_ide_event(sdoc, e);
     long tdoc = active_doc(w, es, doc);
+    // A TU is a FILE (madc's manifest writer): the never-saved buffer is
+    // refused with the reason; once its file exists it joins.
     ev_action(e, "projaddcur", "^k j");	// outside the window too
+    S.apply_ide_event(tdoc, e);
+    ui::get(msg, w, es, "msg");
+    println("proj-addcur-nofile: {}", msg);
+    php::file_put_contents("madc_ide_ast5.txt", "ast5\n");
+    ev_action(e, "projaddcur", "^k j");
     S.apply_ide_event(tdoc, e);
     ui::get(msg, w, es, "msg");
     php::file_get_contents(mtxt, "madc_ide_test.prj.json");
@@ -810,6 +817,7 @@ int main()
     php::file_get_contents(mtxt, "madc_ide_test.prj.json");
     println("proj-del: {} gone={}", msg,
 	    strstr(mtxt.c_str(), "madc_ide_ast5.txt") == 0 ? 1 : 0);
+    remove("madc_ide_ast5.txt");	// the file made for the add
     ev_key(e, "esc");			// @project esc projclose dismisses
     S.apply_ide_event(tdoc, e);
     println("proj-esc: closed={}", project_active(w, es) ? 0 : 1);
@@ -829,7 +837,7 @@ int main()
     proj_startup(w, pes3, doc);
     ui::get(msg2, w, pes3, "msg");
     ui::get(prj2, w, pes3, "proj");
-    println("proj-bad: {} implicit={}", msg2, prj2.is_null() ? 1 : 0);
+    println("proj-bad: implicit={} {}", prj2.is_null() ? 1 : 0, msg2);
     remove("madc_ide_test.prj.json");	// cross-run hygiene
     ev_action(e, "editfile", "^k e");	// home for the build gates
     S.apply_ide_event(tdoc, e);
@@ -981,11 +989,49 @@ int main()
     var opf;
     ui::get(opf, w, es, "projfile");
     println("proj-openproject: {} active={} projfile={} kind={}", msg,
-	    project_active(w, es) ? 1 : 0, opf, projkind_name(proj_kind(w, es)));
+	    project_active(w, es) ? 1 : 0, opf, madc::project_kind_name(proj_kind(w, es)));
     ev_key(e, "esc");			// close the window
     S.apply_ide_event(gdoc, e);
     remove("madc_ide_open.prj.json");
     remove("madc_ide_open.prj.events");
+    // A manifest is madc's (dialect-faces arc rows 6-9): read, named, its
+    // output and its kind by madc's one reader and writer, never a copy here.
+    // A TU resolves against the manifest's directory; the default output is
+    // <base> (madcide's copy said <base>.prj) and "output" resolves against
+    // the manifest's directory too; an added file is named relative to the
+    // manifest; an unknown kind word is refused (the copy made it console).
+    php::mkdir("madc_ide_pd");
+    php::file_put_contents("madc_ide_pd/a.c", "int main(void) { return 0; }\n");
+    php::file_put_contents("madc_ide_pd/b.c", "int b(void) { return 1; }\n");
+    var pdf = "madc_ide_pd/app.prj.json";
+    php::file_put_contents(pdf.c_str(), "{ \"tus\": [\"a.c\"] }\n");
+    long pes5 = ui::create(w, "editor-state-5");
+    proj_load(w, pes5, pdf);
+    var pdrows;
+    proj_tu_rows(pdrows, w, pes5, doc);
+    ensure_build_cmds(w, pes5);
+    var pdb;
+    ui::get(pdb, w, pes5, "buildcmds");
+    println("proj-faces-read: tu={} out={}", pdrows[0]["path"], pdb[1]["out"]);
+    proj_add(w, pes5, doc, "madc_ide_pd/b.c");
+    var pdtxt;
+    php::file_get_contents(pdtxt, pdf.c_str());
+    println("proj-faces-add: named-relative={}", pdtxt.index("\"b.c\"") >= 0 ? 1 : 0);
+    php::file_put_contents(pdf.c_str(), "{ \"tus\": [\"a.c\"], \"output\": \"bin/app\" }\n");
+    proj_load(w, pes5, pdf);
+    ensure_build_cmds(w, pes5);
+    ui::get(pdb, w, pes5, "buildcmds");
+    println("proj-faces-output: {}", pdb[1]["out"]);
+    php::file_put_contents(pdf.c_str(), "{ \"tus\": [], \"kind\": \"tui\" }\n");
+    long pes6 = ui::create(w, "editor-state-6");
+    bool pkl = proj_load(w, pes6, pdf);
+    var pkm;
+    ui::get(pkm, w, pes6, "msg");
+    println("proj-faces-kind: loaded={} {}", pkl ? 1 : 0, pkm);
+    remove("madc_ide_pd/app.prj.json");
+    remove("madc_ide_pd/a.c");
+    remove("madc_ide_pd/b.c");
+    php::rmdir("madc_ide_pd");
     proj_startup(w, es, doc);		// back to the test manifest
     // The implicit single-file project keeps the buffer semantics.
     long pes4 = ui::create(w, "editor-state-4");
@@ -2076,7 +2122,7 @@ int main()
     // one takes the Terminal — the clause after this one).
     var pjk;
     ui::get(pjk, w, es, "proj");
-    pjk["kind"] = "gui";
+    pjk["kind"] = (long)madc::project_kind::gui;	// the reader's code
     ui::set(w, es, "proj", pjk);
     run_buffer(w, es, rdoc);
     madc::task_drain();
@@ -2090,7 +2136,7 @@ int main()
 	    rtxt.index("[exit 3]") >= 0 ? 1 : 0,
 	    slot_shown(w, es, slotPANEL) != viewNONE ? 1 : 0, es_int(w, es, "buildlive", 0), msg);
     remove("madc_ide_run.mad");
-    pjk["kind"] = "console";		// back to the console kind
+    pjk["kind"] = (long)madc::project_kind::console;	// back to the console kind
     ui::set(w, es, "proj", pjk);
 
     // -- polish P3b-2: a CONSOLE program runs on a pty in the Terminal tab

@@ -55,11 +55,12 @@ proj-materialize: Project file created: madc_ide_test.prj.json parses=1 tus=2 ro
 proj-dup: Already in the project: madc_ide_second.mad
 proj-dup-abs: already=1
 proj-open2: path=madc_ide_second.mad closed=1
+proj-addcur-nofile: Cannot add madc_ide_ast5.txt: no such file: madc_ide_ast5.txt.
 proj-addcur: Added madc_ide_ast5.txt to the project. in-manifest=1
 proj-del: Removed madc_ide_ast5.txt from the project. gone=1
 proj-esc: closed=1
 proj-startup: Project madc_ide_test.prj.json: 2 TU(s). tus=2
-proj-bad: madc_ide_test.prj.json is not valid JSON. implicit=1
+proj-bad: implicit=1 madc_ide_test.prj.json: JSON parse error
 build-pane: label=Build rows=4 row0=Echo  [echo hello-{base}]
 build-start: live=1
 build-out: has-hello=1 has-exit0=0 live=0
@@ -90,6 +91,10 @@ close-button: before=help after='' unknown=0
 menu-build-row: shown=problems unknown=0 msg=Project check: clean.
 proj-openproject-prompt: Project file to open (^C aborts):
 proj-openproject: Project madc_ide_open.prj.json: 1 TU(s). active=1 projfile=madc_ide_open.prj.json kind=gui
+proj-faces-read: tu=madc_ide_pd/a.c out=madc_ide_pd/app
+proj-faces-add: named-relative=1
+proj-faces-output: madc_ide_pd/bin/app
+proj-faces-kind: loaded=0 madc_ide_pd/app.prj.json: "kind" must be "console" or "gui".
 proj-implicit-check: Check: clean.
 proj-subst: echo madc_ide_test.prj.json
 win-keys: o=splitw n=nextw p=prevw g=groww t=shrinkw k0=killwin k1=onlywin i=outline a=view
