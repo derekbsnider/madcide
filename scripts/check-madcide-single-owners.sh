@@ -80,8 +80,7 @@ rm -f "$tmp"
 # in this very arc) — the V6 seam audit found the core still hand-rolling
 # it three times with strrchr('/') (each copy answering "" for a path with a
 # trailing separator, where the owner answers the last real component).
-# Marker: no strrchr over '/' in the core; the one strrchr left is
-# path_sans_ext's '.', a different rule.
+# Marker: no strrchr over '/' in the core.
 count_hand_basenames()
 {
 	grep -c "strrchr(.*'/')" "$1"
@@ -104,6 +103,43 @@ if [ "$(count_hand_basenames "$tmp")" -ne 1 ]; then
 	rm -f "$tmp"
 	echo "check-madcide-single-owners: FAIL — negative control did not" \
 	     "detect a synthetic hand-rolled basename (the marker went blind)." >&2
+	exit 1
+fi
+rm -f "$tmp"
+
+# A path's EXTENSION and STEM are madc's (madc::path_drop_extension /
+# madc::path_stem, the dialect faces of madc's one rule): madcide's own
+# path_sans_ext split at the last '.' of the WHOLE path, so a directory's dot
+# ate the name ("dir.d/foo" -> "dir"). Marker: no strrchr / strrpos over '.'
+# anywhere in madcide's dialect code.
+count_hand_extensions()
+{
+	cat "$@" | grep -cE "strrchr\(.*'\.'\)|strrpos\(.*\"\.\"\)"
+}
+
+dialect_sources()
+{
+	find "$TOOLS" "$TEXTED" -type f \( -name '*.inc' -o -name '*.mad' \)
+}
+
+n=$(count_hand_extensions $(dialect_sources))
+if [ "$n" -ne 0 ]; then
+	echo "check-madcide-single-owners: FAIL — $n hand-rolled extension" \
+	     "split(s) (strrchr / strrpos over '.') in madcide's dialect code" \
+	     "(expected 0: a path's extension is madc::path_drop_extension," \
+	     "its stem madc::path_stem)." >&2
+	grep -rnE "strrchr\(.*'\.'\)|strrpos\(.*\"\.\"\)" "$TOOLS" "$TEXTED" >&2
+	exit 1
+fi
+
+# Negative control for the extension marker.
+tmp=$(mktemp)
+echo "    const char *dot = strrchr(pc, '.');	// synthetic" > "$tmp"
+if [ "$(count_hand_extensions "$tmp")" -ne 1 ]; then
+	rm -f "$tmp"
+	echo "check-madcide-single-owners: FAIL — negative control did not" \
+	     "detect a synthetic hand-rolled extension split (the marker went" \
+	     "blind)." >&2
 	exit 1
 fi
 rm -f "$tmp"
@@ -622,5 +658,6 @@ echo "check-madcide-single-owners: OK (one data-location owner: resolve_data_dir
      "one pause owner: terminal_return_pause; one text-mutation owner pair:" \
      "ed_text_insert/ed_text_erase; one record-kind reader per layer; one" \
      "validator seat: graph_edit_apply; one file-kind family reader: kind_family;" \
-     "one active-plugin row writer: plugin_record_active)"
+     "one active-plugin row writer: plugin_record_active; a path's extension:" \
+     "madc::path_drop_extension / madc::path_stem)"
 exit 0

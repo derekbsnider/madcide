@@ -1296,7 +1296,7 @@ bool repl_run_payload(long w, long es, var &r)
 	    return false;
 	var out = argv[1];
 	if ( strlen(out.c_str()) == 0 )
-	    path_sans_ext(out, p);
+	    madc::path_drop_extension(out, p.c_str());
 	long bs = madc::session_build(es_int(w, es, "replh", 0), p.c_str(),
 				      text.c_str(), out.c_str());
 	ui::set(w, es, "replbuildseq", bs);

@@ -615,6 +615,16 @@ int main()
     println("build-subst: madc-resolved={} has-path={}",
 	    sub.index("{madc}") >= 0 ? 0 : 1,
 	    sub.index("madc_ide_test.mad") >= 0 ? 1 : 0);
+    // A path's extension is madc's rule (madc::path_drop_extension): a dot in
+    // a DIRECTORY is not one. madcide's own copy split at the last dot of the
+    // whole path and named proj.d/myproj's layout proj.layout.
+    var lay1;
+    var dotted = "proj.d/myproj";
+    proj_layout_path(lay1, dotted);
+    var lay2;
+    var named = "foo.prj.json";
+    proj_layout_path(lay2, named);
+    println("layout-path: {} {}", lay1, lay2);
     php::file_put_contents("madc_ide_build.mad",
 	"int main() { println(\"ide-build-ok\"); return 0; }\n");
     ev_action(e, "editfile", "^k e");

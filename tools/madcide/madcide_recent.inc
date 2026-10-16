@@ -81,12 +81,11 @@ void recent_note(long w, long es, const char *path0)
 	if ( !(f == canon) )
 	    files[] = f;
     }
-    var cfg;
-    madcide_config_dir(cfg);
     var p;
     recent_path(p);
-    if ( strlen(p.c_str()) == 0 || !dir_ensure(cfg) )
+    if ( strlen(p.c_str()) == 0 )
 	return;
+    madc::path_make_parents(p.c_str());
     var o = { "files": files };
     php::file_put_contents(p.c_str(), format("{}\n", js::stringify(o, 2)));
 }

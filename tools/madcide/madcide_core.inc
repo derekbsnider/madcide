@@ -87,17 +87,6 @@ bool keys_title_line(var &title, var &line)
     return true;
 }
 
-// path minus its extension — THE {base} rule (build_subst's substitution,
-// the profile cycle's names, and the manifest default share it).
-void path_sans_ext(var &out, var &p)
-{
-    out = p;
-    const char *pc = p.c_str();
-    const char *dot = strrchr(pc, '.');
-    if ( dot != 0 )
-	out = perl::substr(p, 0, dot - pc);
-}
-
 // Two spellings of one file are ONE FILE — the identity question every
 // "is this buffer / TU / diagnostic about that file" site asks. Canonical on
 // both sides through madc::canonical_path, the engine's standing
@@ -134,7 +123,7 @@ bool proj_has_manifest(long w, long es)
 void proj_layout_path(var &out, var &pf)
 {
     var base;
-    path_sans_ext(base, pf);
+    madc::path_drop_extension(base, pf.c_str());
     out = format("{}.layout", base);
 }
 
@@ -2354,9 +2343,8 @@ void key_profile_names(var &out, long w, long es)
     for ( long i = 0; i < n; i = i + 1 )
     {
 	var p = php::array_get_cstr(g, i);
-	var nm = php::basename(p);	// the last path component: PHP parity's owner
 	var base;
-	path_sans_ext(base, nm);
+	madc::path_stem(base, p.c_str());
 	names.push(base);
     }
     out = names;
@@ -5178,7 +5166,7 @@ bool proj_events_path(var &out, long w, long es)
     var pf;
     ui::get(pf, w, es, "projfile");
     var base;
-    path_sans_ext(base, pf);
+    madc::path_drop_extension(base, pf.c_str());
     out = format("{}.events", base);
     return true;
 }
@@ -5295,7 +5283,7 @@ bool proj_write(long w, long es, long doc)
 	var lp;
 	proj_launch_path(lp, w, es, doc);
 	var base;
-	path_sans_ext(base, lp);
+	madc::path_drop_extension(base, lp.c_str());
 	pf = format("{}.prj.json", base);
 	ui::set(w, es, "projfile", pf);
     }
@@ -5529,7 +5517,7 @@ void proj_startup(long w, long es, long doc)
     var lp;
     proj_launch_path(lp, w, es, doc);
     var base;
-    path_sans_ext(base, lp);
+    madc::path_drop_extension(base, lp.c_str());
     var pf = format("{}.prj.json", base);
     if ( !php::file_exists(pf) )
 	return;
@@ -6078,8 +6066,7 @@ void build_subst(var &out, const char *cmd, long w, long es, long doc)
     var p;
     buffer_path(p, w, doc);
     var base;
-    path_sans_ext(base, p);	// THE {base} rule, shared with the
-				// manifest default
+    madc::path_drop_extension(base, p.c_str());	// madc's {base} rule
     var pf;
     ui::get(pf, w, es, "projfile");
     var s1 = php::str_replace("{path}", p.c_str(), cmd);
@@ -7533,7 +7520,7 @@ void ensure_build_cmds(long w, long es)
 	var pout;
 	var o = proj["output"];
 	if ( o.is_null() )
-	    path_sans_ext(pout, pf);
+	    madc::path_drop_extension(pout, pf.c_str());
 	else
 	    pout = format("{}", o);
 	rows[] = { "name": "Check project (in-process)",

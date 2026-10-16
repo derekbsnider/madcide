@@ -316,43 +316,11 @@ void user_settings_load(long w, long es)
     ui::set(w, es, "usersettings", s);
 }
 
-// Create the directory and every ancestor. php::mkdir is PHP's ONE level
-// (there is no recursive flag), so walk the components; an already-existing
-// level is not an error. False = it does not exist afterwards. The one
-// owner: the session advertisements' directory (madcide_discover.inc) and
-// the configuration directory (user_settings_save) both make theirs here.
-bool dir_ensure(var &dir)
-{
-    const char *d = dir.c_str();
-    if ( strlen(d) == 0 )
-	return false;
-    if ( php::file_exists(d) )
-	return true;
-    array parts;
-    php::explode(parts, "/", d);
-    long n = php::count(parts);
-    // An absolute path's leading empty component IS the root; a relative one
-    // grows from the working directory.
-    var grown = ".";
-    if ( d[0] == '/' )
-	grown = "";
-    for ( long i = 0; i < n; i = i + 1 )
-    {
-	const char *seg = php::array_get_cstr(parts, i);
-	if ( strlen(seg) == 0 )
-	    continue;
-	var next = format("{}/{}", grown, seg);
-	grown = next;
-	if ( !php::file_exists(grown.c_str()) )
-	    php::mkdir(grown.c_str());
-    }
-    return php::file_exists(d);
-}
-
 // settings.json written whole from the bag's usersettings (plan §41.11a
 // step 3e), beside its reader, user_settings_load. The configuration
-// directory is made when missing. False, with the reason on the status line,
-// when there is none or the write fails.
+// directory is made when missing (madc::path_make_parents, madc's owner of
+// `mkdir -p`). False, with the reason on the status line, when there is none
+// or the write fails.
 // Thread contract: the session that changed a setting writes the file;
 // between processes the last write wins.
 bool user_settings_save(long w, long es)
@@ -367,8 +335,8 @@ bool user_settings_save(long w, long es)
     var path = format("{}/settings.json", cfg);
     var us;
     ui::get(us, w, es, "usersettings");
-    if ( !dir_ensure(cfg)
-      || php::file_put_contents(path.c_str(), format("{}\n", js::stringify(us, 2))) < 0 )
+    madc::path_make_parents(path.c_str());
+    if ( php::file_put_contents(path.c_str(), format("{}\n", js::stringify(us, 2))) < 0 )
     {
 	ui::set(w, es, "msg", format("{} cannot be written: the choice is not kept.", path));
 	return false;
@@ -440,20 +408,17 @@ bool keys_choice_save(long w, long es, const char *name0)
     return setting_put(w, es, "keys", ks);
 }
 
-void path_sans_ext(var &out, var &p);	// madcide_core.inc: THE {base} rule
-
-// The name the program was invoked by: madc::sys.argv[0]'s last path
-// component without its extension, so /usr/bin/chthonia, chthonia.exe and
-// the script tools/madcide/madcide.mad read chthonia, chthonia and madcide.
-// A symbolic or hard link is invoked under its own name.
+// The name the program was invoked by: madc::sys.argv[0]'s stem (madc's
+// rule, madc::path_stem), so /usr/bin/chthonia, chthonia.exe and the script
+// tools/madcide/madcide.mad read chthonia, chthonia and madcide. A symbolic
+// or hard link is invoked under its own name.
 void program_name(var &out)
 {
     out = "";
     if ( php::count(madc::sys.argv) == 0 )
 	return;
     var a0 = madc::sys.argv[0];
-    var base = php::basename(a0);
-    path_sans_ext(out, base);
+    madc::path_stem(out, a0.c_str());
 }
 
 // WHICH bundle (§5.2): the command line's --profile (`cli`, "" = not
