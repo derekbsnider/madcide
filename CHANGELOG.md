@@ -5,7 +5,7 @@ shipped it inside the madc tree.
 
 ## [Unreleased]
 
-## [0.8.0] — 2026-10-13
+## [0.8.0] — 2026-10-15
 
 The live REPL release, paired with madc 0.105.0 (`madcide.json`): the REPL
 pane follows an edit to the REPL buffer at once, and Restart and Run All runs
