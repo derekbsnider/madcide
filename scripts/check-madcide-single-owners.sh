@@ -132,6 +132,33 @@ if [ "$n" -ne 0 ]; then
 	exit 1
 fi
 
+# The user CONFIGURATION DIRECTORY is madc's (madc::user_config_dir, the rule
+# madc.ini's lookup reads); madcide keeps only its MADCIDE_CONFIG_DIR
+# override. Marker: no read of XDG_CONFIG_HOME or APPDATA in madcide's dialect
+# code — its own config_dir_of was a second copy of the rule.
+count_config_dir_reads()
+{
+	cat "$@" | grep -cE 'getenv\("(XDG_CONFIG_HOME|APPDATA)"\)'
+}
+
+n=$(count_config_dir_reads $(dialect_sources))
+if [ "$n" -ne 0 ]; then
+	echo "check-madcide-single-owners: FAIL — $n read(s) of XDG_CONFIG_HOME" \
+	     "/ APPDATA in madcide's dialect code (expected 0: the user" \
+	     "configuration directory is madc::user_config_dir)." >&2
+	grep -rnE 'getenv\("(XDG_CONFIG_HOME|APPDATA)"\)' "$TOOLS" "$TEXTED" >&2
+	exit 1
+fi
+tmp=$(mktemp)
+echo '    config_dir_of(out, n, o, getenv("XDG_CONFIG_HOME"), a, h, w);	// synthetic' > "$tmp"
+if [ "$(count_config_dir_reads "$tmp")" -ne 1 ]; then
+	rm -f "$tmp"
+	echo "check-madcide-single-owners: FAIL — negative control did not" \
+	     "detect a synthetic config-directory read (the marker went blind)." >&2
+	exit 1
+fi
+rm -f "$tmp"
+
 # Negative control for the extension marker.
 tmp=$(mktemp)
 echo "    const char *dot = strrchr(pc, '.');	// synthetic" > "$tmp"
@@ -659,5 +686,6 @@ echo "check-madcide-single-owners: OK (one data-location owner: resolve_data_dir
      "ed_text_insert/ed_text_erase; one record-kind reader per layer; one" \
      "validator seat: graph_edit_apply; one file-kind family reader: kind_family;" \
      "one active-plugin row writer: plugin_record_active; a path's extension:" \
-     "madc::path_drop_extension / madc::path_stem)"
+     "madc::path_drop_extension / madc::path_stem; the user configuration" \
+     "directory: madc::user_config_dir)"
 exit 0

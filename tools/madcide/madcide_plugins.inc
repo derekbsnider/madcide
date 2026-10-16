@@ -36,42 +36,21 @@
 
 #include "include/madcide/plugin_api"	// the API version, the handler contracts
 
-// Where product `name`'s configuration lives (madcide's, chthonia's: the
-// product in use), from its inputs (the environment's values; NULL or "" =
-// unset): MADCIDE_CONFIG_DIR (the base's own override — the test suite
-// points it at a fixture, or nowhere), then $XDG_CONFIG_HOME/<name>, then
-// %APPDATA%/<name> on Windows, then ~/.config/<name>. "" = none (no home):
+// Where the product in use (madcide, chthonia) keeps its configuration:
+// MADCIDE_CONFIG_DIR (the base's own override — the test suite points it at
+// a fixture, or nowhere), else madc's user configuration directory of the
+// product's name (madc::user_config_dir: the rule madc.ini's lookup reads —
+// $XDG_CONFIG_HOME, %APPDATA% on Windows, ~/.config). "" = none (no home):
 // no settings and no user plugins, never an error.
-void config_dir_of(var &out, const char *name, const char *over,
-		   const char *xdg, const char *appdata, const char *home,
-		   bool win)
+void madcide_config_dir(var &out)
 {
-    out = "";
+    const char *over = getenv("MADCIDE_CONFIG_DIR");
     if ( over != 0 && strlen(over) > 0 )
     {
 	out = over;
 	return;
     }
-    if ( xdg != 0 && strlen(xdg) > 0 )
-    {
-	out = format("{}/{}", xdg, name);
-	return;
-    }
-    if ( win && appdata != 0 && strlen(appdata) > 0 )
-    {
-	out = format("{}/{}", appdata, name);
-	return;
-    }
-    if ( home != 0 && strlen(home) > 0 )
-	out = format("{}/.config/{}", home, name);
-}
-
-void madcide_config_dir(var &out)
-{
-    bool win = strcmp(madc::sys.platform, "win32") == 0;
-    config_dir_of(out, product_in_use().name, getenv("MADCIDE_CONFIG_DIR"),
-		  getenv("XDG_CONFIG_HOME"), getenv("APPDATA"), getenv("HOME"),
-		  win);
+    madc::user_config_dir(out, product_in_use().name);
 }
 
 // A JSON OBJECT from a file (a manifest, settings.json). False = it cannot

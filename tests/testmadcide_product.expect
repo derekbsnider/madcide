@@ -1,6 +1,6 @@
 product-about-base: |madcide <MADCIDE_VERSION>||https://github.com/derekbsnider/madcide||MadC <sys.version>||Copyright (c) <__DATE__> Derek Snider||Licensed under the Mozilla Public License 2.0 (MPL-2.0).|Provided "as is", without warranty of any kind, express or implied.|No contributor is liable for any damages arising from its use.
 product-base: name=madcide bundle=[] tui=1 linked=0
-product-config: xdg=/x/learner appdata=/a/learner home=/h/.config/learner override=/o
+product-config: xdg=/x/learner appdata=/a/learner home=/h/.config/learner override=tmp/testmadcide_product_cfg
 product-face: none-web=1 tui=1 gui-web=1 line=1
 product-usage: learner=1 madcide=0
 product-open: doc=1 bundle=learner transport=linked command=1

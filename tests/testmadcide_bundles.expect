@@ -1,8 +1,4 @@
-bundles-cfg-override: /o
-bundles-cfg-xdg: /x/madcide
-bundles-cfg-appdata: /a/madcide
-bundles-cfg-home: /h/.config/madcide
-bundles-cfg-none: []
+bundles-cfg-override: tmp/testmadcide_bundles_cfg
 bundles-default-pin: found=1 read=1 same=1
 bundles-refuse-field: CFG/plugins/bad/bad.plugin: unknown field 'colour'
 bundles-refuse-kind: CFG/plugins/bad/bad.plugin: unknown contribution 'commands'
