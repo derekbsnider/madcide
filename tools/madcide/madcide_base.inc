@@ -84,8 +84,8 @@ int madcide_main(int argc, char **argv, const ide_product &product)
     // The UI LEVEL is ONE flag (ui::level, owner 2026-09-09: a program
     // names the rendering model it wants, never a target's spelling): --gui
     // shows the same composed tree in a window through the web level
-    // (<ns_ui_web>, a lazy module row — a machine without the library
-    // refuses at open with the reason); --line is madc's line mode, `madc
+    // (madc's ui_web module, imported by the client — its libraries are a
+    // dependency of the packages); --line is madc's line mode, `madc
     // -i FILE` (the ex core at the prompt — over a pipe or a dumb terminal);
     // the grid (ui::TUI) is the default;
     // -c "<command> [arg]" is the ui::NONE level — no surface, one command,

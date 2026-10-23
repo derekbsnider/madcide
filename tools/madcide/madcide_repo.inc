@@ -6,8 +6,10 @@
 // status_expand names git_seat.
 //
 // Thread contract: session-thread state — a handle and the seat's answer
-// live on the buffer's bag; the madcgit module's handles are used only from
+// live on the buffer's bag; the git module's handles are used only from
 // the thread that opened them.
+
+import git;		// madc's git module: its names, opened at program start
 
 // The doc's git handle (0 = no repository above it) and its working-tree-
 // relative path, opened once and kept on the doc bag ("ghandle", "grelpath").
@@ -23,11 +25,8 @@ long git_handle_of(long w, long es, long adoc)
     var p;
     buffer_path(p, w, adoc);
     var dir = php::dirname(p);		// ring: own the text first
-    // The madcgit module is LAZY (libgit2 is the system's, a dependency of
-    // this nexus — never part of madc): without it there is no repository to
-    // ask, the same degradation as a path outside any repository (handle 0,
-    // the versioned layer absent).
-    gh = git::available() ? git::open(dir.c_str()) : 0;
+    // Handle 0 = no repository above the path (the versioned layer absent).
+    gh = git::open(dir.c_str());
     ui::set(w, adoc, "ghandle", gh);
     if ( gh > 0 )
     {
@@ -56,7 +55,7 @@ void git_relpath_of(var &out, long w, long adoc)
 void git_seat(var &out, long w, long es, long doc)
 {
     out = "";
-    if ( doc == 0 || doc_untitled(w, doc) || !git::available() )
+    if ( doc == 0 || doc_untitled(w, doc) )
 	return;
     long now = php::time();
     long at = es_int(w, doc, "gseatat", -1);

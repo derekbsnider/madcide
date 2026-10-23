@@ -30,8 +30,9 @@ Each release's packages stand alone: every one carries the
 | macOS (Apple silicon, Intel) | `madcide-<ver>-macos-<arch>.tar.gz` — unpack, run `bin/madcide` |
 | Windows | `madcide-<ver>-windows-x86_64.zip` — unzip, run `bin\madcide.exe` |
 
-The window needs WebKitGTK 6.0 and GTK 4 on Linux (the packages recommend
-them); the terminal needs neither.
+On Linux madcide needs WebKitGTK 6.0 and GTK 4 (the packages depend on
+them; with the tarball, install them yourself), in the terminal as well as
+the window.
 
 ## Build from source
 

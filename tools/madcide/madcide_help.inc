@@ -1,6 +1,6 @@
 // madcide_help.inc — Help's topics (plan docs/plans/2026-10-03-chthonia-
 // windows-macos.md §7d): a bundle's Markdown pages, read through the
-// markdown:: namespace (the madcmark module) and listed in the Help view.
+// markdown:: namespace (madc's markdown module) and listed in the Help view.
 //
 // A bundle contributes its help as a directory: `"help": "chthonia"` names
 // chthonia.help/ beside its manifest — one Markdown file per topic, the first
@@ -27,6 +27,8 @@
 // on "helptitle"; the index's rows on "helpindexrows" ({content, target}).
 //
 // Thread contract: the session's thread; the rows are the session's.
+
+import markdown;	// madc's markdown module: its names, opened at program start
 
 bool show_view(long w, long es, long kind);	// madcide_core.inc, the one show owner
 bool view_shown(long w, long es, long kind);
@@ -180,15 +182,10 @@ void help_target_topic(var &out, var &url)
 
 // Open topic `name` in the editor's Help tab: its file's rows, or the made
 // topic's. False, with the reason on the status line, for a topic no help
-// directory has, or without the madcmark module.
+// directory has.
 bool help_open(long w, long es, long doc, const char *name0)
 {
     var name = name0;		// ring discipline: own the text first
-    if ( !markdown::available() )
-    {
-	ui::set(w, es, "msg", "Help needs the madcmark module (markdown::), which this installation does not have.");
-	return false;
-    }
     var text;
     if ( name == "menus" )
 	help_menus_text(text, w, es);
@@ -230,12 +227,12 @@ bool help_open(long w, long es, long doc, const char *name0)
 
 // The index's rows: the contents page first, then every topic the contents
 // page links to, in its order — the same link rows the page shows. Empty
-// without the madcmark module or a contents page.
+// without a contents page.
 void help_index_rows(var &out, long w, long es)
 {
     var rows = {};
     var text;
-    if ( markdown::available() && help_file(text, w, es, "contents.md") )
+    if ( help_file(text, w, es, "contents.md") )
     {
 	var md;
 	markdown::parse(md, text.c_str());

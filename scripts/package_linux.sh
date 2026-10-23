@@ -26,11 +26,11 @@
 #   -o DIST          where the packages go (default dist/), their lines in
 #                    its SHA256SUMS
 #
-# The version is tools/madcide/madcide_version.h's. madcide's own face is
-# the terminal; its window (--gui) needs the WebKitGTK 6.0 and GTK 4
-# libraries madc's GUI module binds, so those are recommended, not required,
-# as madc's own packages have them. Each package is checked to hold exactly
-# the staged files, each readable by every user.
+# The version is tools/madcide/madcide_version.h's. madcide imports madc's
+# ui_web module for its window (--gui), and an imported module opens at
+# program start, so the WebKitGTK 6.0 and GTK 4 libraries that module binds
+# are required, in every face. Each package is checked to hold exactly the
+# staged files, each readable by every user.
 #
 # One .deb per Ubuntu release, built on it with that release's madc: on
 # Ubuntu the revision is <rel>~ubuntu<VERSION_ID>, as madc's is, and the
@@ -135,12 +135,10 @@ stage_system "$debroot/usr"
 mkdir -p "$debroot/DEBIAN"
 # What every program and library the package carries links, at this host's
 # versions; the carried libraries (libmadc, libmadcide, ...) resolve among
-# themselves (-l). The webview module is left out: its WebKitGTK and GTK
-# are the Recommends below (madcide's window is optional).
+# themselves (-l). The ui_web module's WebKitGTK and GTK are among them.
 priv=$debroot/usr/lib/madcide
 elves=()
 while IFS= read -r f; do
-	case "$(basename "$f")" in libmadcwebview.*) continue ;; esac
 	[ "$(head -c 4 "$f" | od -An -c | tr -d ' ')" = '177ELF' ] && elves+=("$f")
 done < <(find "$priv" -type f)
 mkdir -p "$work/shlibdeps/debian"
@@ -160,7 +158,6 @@ Priority: optional
 Architecture: $deb_arch
 Maintainer: $maint
 Depends: $shlibs
-Recommends: libwebkitgtk-6.0-4, libgtk-4-1
 Homepage: $home
 Description: $summary
 $(printf '%s\n' "$desc" | sed 's/^/ /')
@@ -236,13 +233,9 @@ License: MPL-2.0
 URL: $home
 AutoReq: yes
 AutoProv: no
-Recommends: webkitgtk6.0
-Recommends: gtk4
-# The carried libraries resolve among themselves; the webview library's own
-# DT_NEEDED (webkitgtk, gtk4 and their world) must not become hard Requires:
-# the window is optional, the weak dependencies above name it.
-%global __requires_exclude ^lib(madc|madcide|madcgit|madcmark|madcwebview)[-.]
-%global __requires_exclude_from ^/usr/lib/madcide/lib/libmadcwebview\\.so\$
+# The carried libraries resolve among themselves; the ui_web module's
+# DT_NEEDED (webkitgtk, gtk4) are Requires, as every other carried binary's.
+%global __requires_exclude ^lib(madc|madcide)[-.]
 %define debug_package %{nil}
 %define __strip /bin/true
 %define _build_id_links none

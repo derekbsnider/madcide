@@ -51,7 +51,7 @@
 //      session sees the entry, the entry shown as a taken one; %help lists
 //      it after the session's own commands; a name the session owns, a
 //      name its rule does not read whole, a repeat and a code that names no
-//      command are refused; madcide's own `%git` (madcide_git.inc: the madcgit
+//      command are refused; madcide's own `%git` (madcide_git.inc: the git
 //      module's %git, under the module's own usage and summary) is listed
 //      first.
 #include "../tools/texteditor/editor_events.inc"

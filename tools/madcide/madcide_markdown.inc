@@ -1,7 +1,7 @@
 // madcide_markdown.inc — the ONE Markdown renderer of madcide (plan
 // docs/plans/2026-10-03-chthonia-windows-macos.md §7d): a markdown:: tree
-// (the madcmark module, <ns_markdown>) as a list of ROWS, one text line each,
-// for the panes that show Markdown — Help's topics (madcide_help.inc) and the
+// (madc's markdown module) as a list of ROWS, one text line each, for the
+// panes that show Markdown — Help's topics (madcide_help.inc) and the
 // Markdown Preview of a buffer (madcide_preview.inc).
 //
 // A row is {content, line} plus, where it applies, `target` (a link's URL: a
@@ -15,6 +15,8 @@
 // HTML blocks show nothing.
 //
 // Thread contract: pure functions of their tree; the session's thread.
+
+import markdown;	// madc's markdown module: its names, opened at program start
 
 // A node's inline text, appended to `out`: its leaves' text, a line break a
 // space; inline HTML is left out.
@@ -235,17 +237,13 @@ void md_blocks_rows(var &rows, var &blocks, const char *lead0, const char *inden
 }
 
 // A Markdown text's rows: its document's blocks through the renderer above.
-// False when the madcmark module is absent (the caller says so).
-bool md_text_rows(var &rows, const char *text0)
+void md_text_rows(var &rows, const char *text0)
 {
     var text = text0;		// ring discipline: own the text first
-    if ( !markdown::available() )
-	return false;
     var doc;
     markdown::parse(doc, text.c_str());
     var blocks = doc["children"];
     md_blocks_rows(rows, blocks, "", "");
-    return true;
 }
 
 // ---- highlighting: a Markdown buffer's spans (plan §7d, consumer 2) --------
@@ -366,18 +364,15 @@ void md_node_spans(var &rows, array &lines, var &n)
 	md_node_spans(rows, lines, c);
 }
 
-// A Markdown text's span rows. False when the madcmark module is absent.
-bool md_spans(var &rows, const char *text0)
+// A Markdown text's span rows.
+void md_spans(var &rows, const char *text0)
 {
     var text = text0;		// ring discipline: own the text first
-    if ( !markdown::available() )
-	return false;
     var doc;
     markdown::parse(doc, text.c_str());
     array lines;
     php::explode(lines, "\n", text.c_str());
     md_node_spans(rows, lines, doc);
-    return true;
 }
 
 // ---- the concealing lens: a Markdown text as it reads (plan §7d, consumer 3)
@@ -599,32 +594,26 @@ void md_conceal_node(var &cut, var &wraps, var &starts, var &text, var &n)
 }
 
 // A text's concealed ranges (`cut`: s * 2^32 + e keys, in stored order —
-// they may overlap) and its constructs (`wraps`, md_wrap's rows). False when
-// the madcmark module is absent.
-bool md_concealed(var &cut, var &wraps, var &text)
+// they may overlap) and its constructs (`wraps`, md_wrap's rows).
+void md_concealed(var &cut, var &wraps, var &text)
 {
     cut = {};
     wraps = {};
-    if ( !markdown::available() )
-	return false;
     var doc;
     markdown::parse(doc, text.c_str());
     var starts;
     text_line_starts(starts, text);
     md_conceal_node(cut, wraps, starts, text, doc);
     php::sort(cut);
-    return true;
 }
 
 // The display text and its map: the stored text's visible runs, in order.
-// False when the madcmark module is absent.
-bool md_conceal(var &display, var &map, const char *text0)
+void md_conceal(var &display, var &map, const char *text0)
 {
     var text = text0;		// ring discipline: own the text first
     var cut;
     var wraps;
-    if ( !md_concealed(cut, wraps, text) )
-	return false;
+    md_concealed(cut, wraps, text);
     // overlapping ranges merge as the walk below skips them
     long nc = php::count(cut);
     long n = strlen(text.c_str());
@@ -653,7 +642,6 @@ bool md_conceal(var &display, var &map, const char *text0)
     }
     display = shown;
     map = segs;
-    return true;
 }
 
 // ---- the concealing lens's put (plan §7d, slice 2): an edit through the
@@ -672,8 +660,7 @@ bool md_put_repair(var &out, long &caret, var &before, long p, long e, var &ins)
 	return false;
     var cut;
     var wraps;
-    if ( !md_concealed(cut, wraps, before) )
-	return false;
+    md_concealed(cut, wraps, before);
     long nw = php::count(wraps);
     // the constructs that go whole: each one whose visible text lies inside
     // the deletion grown by the constructs already going (nested ones go

@@ -9,6 +9,8 @@
 //   request the event may have parked (suspend -> term_exec -> pause ->
 //   resume). A remote client would do the same over a transport.
 
+import ui_web;		// madc's ui_web module: the window (ui::WEB), opened at program start
+
 // THE return-key pause (one owner, dupaudit family terminal_return_pause):
 // every suspended-terminal run holds the guest's output on screen until
 // enter, then the caller resumes into the full repaint.
@@ -112,7 +114,7 @@ void client_service(IdeSession &S, long t)
 // The IDE loop: the same compose-as-data -> render -> event -> apply
 // cycle as vised, speaking to the session object only. The UI LEVEL is one
 // argument (ui::level: ui::TUI = the grid frontend the tui_* names spell;
-// ui::WEB shows the same composed tree in a window through <ns_ui_web>).
+// ui::WEB shows the same composed tree in a window through ui_web).
 // One loop, one composer: the workbench layout rides layout hints the
 // terminal ignores, so the ONLY per-level fact is whether a real terminal
 // exists (level_of(t) <= ui::TUI) — S.terminal(has_term) gates the

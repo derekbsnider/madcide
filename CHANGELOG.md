@@ -11,7 +11,22 @@ The shared-faces release, paired with madc 0.106.0 (`madcide.json`): three
 rules madcide kept its own copy of — a path's extension, stem and parent
 directories; the user configuration directory; a project manifest's read and
 write — are deleted, and madcide calls madc's one owner for each. Each move
-fixes a place the copy had diverged.
+fixes a place the copy had diverged. madcide also moves onto madc 0.106.0's
+module model: git, Markdown and the web UI target are imported by name instead
+of probed for.
+
+### madcide imports madc's capabilities as modules
+
+madcide says `import git;`, `import markdown;` and `import ui_web;` — madc
+0.106.0's self-describing modules, in place of the former availability probes:
+the git views and `%git`, the Markdown renderer behind Help and Markdown
+Preview, and the window (`ui::WEB`). The `git::available()` and
+`markdown::available()` checks and their "module not installed" messages are
+gone — git and Markdown are open wherever madcide runs, and the window opens
+through `ui_web`. On Linux the packages now DEPEND on WebKitGTK 6.0 and GTK 4
+rather than recommend them: an imported module opens at program start, so the
+terminal face loads `ui_web`'s libraries too, not only the window. Gate: the
+gui lane (`scripts/run_tests.sh --gui`).
 
 ### Paths go through madc's path faces
 

@@ -96,7 +96,6 @@ int main()
     long doc = S.open(path, false, "helptest");
     long w = S.w;
     long es = S.es;
-    println("module: {}", markdown::available());
 
     // 1. Help ▸ Help Contents: contents.md in the Help view.
     bool cont = true;

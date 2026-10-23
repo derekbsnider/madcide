@@ -1,4 +1,3 @@
-module: true
 contents: topic=contents title=Sample Help editor-tab=true index-shown=true
 index: [Sample Help][Getting started][The shell][Menus and commands]
 contents-link: row=• Getting started target=getting-started.md

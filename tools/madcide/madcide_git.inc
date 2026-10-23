@@ -1,8 +1,8 @@
 // madcide_git.inc — the IDE's git (plan docs/plans/2026-10-03-chthonia-
 // windows-macos.md §7e stage 1, §7f item 4): the `git` command — what
-// `%git VERB` in the REPL, a key and a menu row reach — is the madcgit
+// `%git VERB` in the REPL, a key and a menu row reach — is the git
 // module's own %git verb (git::command; its verbs and their git oracles are
-// src/modules/madcgit/madcgit_verbs.cpp), run in madcide's process over
+// madc's src/modules/git/git_verbs.cpp), run in madcide's process over
 // madcide's buffers; the views (Changes, History, Blame line) read through
 // the same verbs or the module's rows (git::*, read-only). A builtin module:
 // builtin_plugins' row "git" (madcide_core.inc), activated by git_activate.
@@ -14,6 +14,8 @@
 // buffer's repository handle lives on its bag (git_handle_of); a handle a
 // verb opens for a file no buffer holds is closed before the verb returns.
 
+import git;		// madc's git module: its names, opened at program start
+
 // ---- a verb's repository and file ----
 // The repository a verb reads: the one above FILE (an open buffer's, kept
 // on its bag), else the active buffer's, else the working directory's.
@@ -21,11 +23,6 @@
 long git_repo_for(var &why, long w, long es, var &file, bool &owned)
 {
     owned = false;
-    if ( !git::available() )
-    {
-	why = "git is not available (the madcgit module is not installed)";
-	return 0;
-    }
     bool named = strlen(file.c_str()) > 0;
     long d = named ? buffer_doc_named(w, es, file.c_str()) : active_doc(w, es, 0);
     if ( d != 0 && !doc_untitled(w, d) )
@@ -157,11 +154,6 @@ bool git_command(var &out, var &why, long w, long es, long doc, const char *arg0
 {
     var arg = arg0;			// ring discipline: own the text first
     out = "";
-    if ( !git::available() )
-    {
-	why = "git is not available (the madcgit module is not installed)";
-	return false;
-    }
     madc::host_documents(w, active_doc(w, es, doc));
     var r;
     git::command(r, arg.c_str());

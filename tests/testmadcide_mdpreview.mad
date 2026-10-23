@@ -58,7 +58,6 @@ int main()
     long doc = S.open(md, false);
     long w = S.w;
     long es = S.es;
-    println("module: {}", markdown::available());
 
     // 1. View ▸ Markdown Preview: the buffer's rows beside it.
     bool cont = true;

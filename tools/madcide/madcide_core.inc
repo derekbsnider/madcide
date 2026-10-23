@@ -3966,8 +3966,7 @@ bool lens_render(var &shown, var &vmap, var &vrows, var &t, var &p, long lang)
 {
     if ( lens_conceals(lang) )
     {
-	if ( !md_conceal(shown, vmap, t.c_str()) )
-	    return false;
+	md_conceal(shown, vmap, t.c_str());
 	var srows;
 	md_spans(srows, t.c_str());
 	lens_spans(vrows, srows, t, shown, vmap);

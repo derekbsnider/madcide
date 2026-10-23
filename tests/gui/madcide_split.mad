@@ -16,6 +16,7 @@
 // position and activates it, its caret kept.
 #include "../../tools/texteditor/editor_events.inc"
 #include "../../tools/madcide/madcide_core.inc"
+import ui_web;		// the window (ui::WEB): madc's ui_web module
 
 // The layout facts, as one snapshot line.
 void probe(long t)

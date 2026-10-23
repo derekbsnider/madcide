@@ -50,7 +50,7 @@ void preview_follow(long w, long es, long doc)
     if ( es_int(w, es, "mdpreviewdoc", 0) == doc && !last.is_null() && last == t )
 	return;
     var rows = {};
-    md_text_rows(rows, t.c_str());		// empty without the madcmark module
+    md_text_rows(rows, t.c_str());
     ui::set(w, es, "mdpreviewrows", rows);
     ui::set(w, es, "mdpreviewtext", t);
     ui::set(w, es, "mdpreviewdoc", doc);
@@ -122,10 +122,7 @@ void preview_view_node(var &out, long w, long es, bool focus)
     var items = {};
     long pdoc = es_int(w, es, "mdpreviewdoc", 0);
     var label = "Markdown Preview";
-    if ( !markdown::available() )
-	items[] = { "role": "item",
-		    "content": "(Markdown Preview needs the madcmark module, which this installation does not have)" };
-    else if ( pdoc == 0 )
+    if ( pdoc == 0 )
 	items[] = { "role": "item", "content": "(the buffer is not Markdown)" };
     else
     {
