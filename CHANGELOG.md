@@ -5,6 +5,52 @@ shipped it inside the madc tree.
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-10-23
+
+The shared-faces release, paired with madc 0.106.0 (`madcide.json`): three
+rules madcide kept its own copy of — a path's extension, stem and parent
+directories; the user configuration directory; a project manifest's read and
+write — are deleted, and madcide calls madc's one owner for each. Each move
+fixes a place the copy had diverged.
+
+### Paths go through madc's path faces
+
+`madc::path_drop_extension` gives `{base}`, the layout, events and fresh
+manifest paths and the default output; `madc::path_stem` gives the program's
+name and the key-profile names; `madc::path_make_parents` makes the directory
+before `settings.json` and `recent.json` are written. The old extension split
+cut at the last dot of the whole path, so a dot in a directory ate the name:
+`proj.d/myproj`'s layout is now `proj.d/myproj.layout` (it was `proj.layout`),
+and the directory-make no longer grows a Windows absolute path from `.`. Gate:
+`tests/testmadcide` (`layout-path:`); `scripts/check-madcide-single-owners.sh`
+is red on a hand-rolled extension split in madcide's dialect code.
+
+### The user configuration directory is madc's
+
+madc owns the one lookup rule — `$XDG_CONFIG_HOME`, `%APPDATA%` on Windows,
+`~/.config` — and `madcide_config_dir` keeps only its `MADCIDE_CONFIG_DIR`
+override and then calls `madc::user_config_dir` with the product's name. On
+Windows the madcide copy had looked only in `$HOME/.config`; the directory now
+honours `%APPDATA%`. Gate: `scripts/check-madcide-single-owners.sh` is red on a
+read of `XDG_CONFIG_HOME` or `APPDATA` in madcide's dialect code.
+
+### Project manifests are read and written by madc
+
+The project layer calls madc's one reader and writer:
+`madc::project_manifest_read` for load and the reload after each edit,
+`madc::project_manifest_create` / `_add_tu` for the materialized manifest (an
+existing file is never overwritten), `_add_tu` / `_remove_tu` for the file add
+and delete, `_set_kind` for the kind toggle, `madc::project_default_output` for
+the build rows, `madc::project_events_path` for the memory file, and
+`madc::project_kind` codes with `madc::project_kind_name`. Against madc's reader
+the madcide copy had differed: a TU now resolves against the manifest's
+directory, the default output of `foo.prj.json` is `foo.prj`, `"output"`
+resolves against the manifest, an added file is stored resolved, and an unknown
+kind word carries madc's reason instead of becoming console. Gate:
+`tests/testmadcide` (`proj-faces-read` / `-add` / `-output` / `-kind`,
+`proj-addcur-nofile`, `proj-bad`); `scripts/check-madcide-single-owners.sh` is
+red on a manifest parsed, stringified or given a kind word in madcide.
+
 ## [0.8.0] — 2026-10-15
 
 The live REPL release, paired with madc 0.105.0 (`madcide.json`): the REPL
