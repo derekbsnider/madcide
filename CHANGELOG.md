@@ -5,6 +5,15 @@ shipped it inside the madc tree.
 
 ## [Unreleased]
 
+## [0.9.1] — 2026-10-24
+
+Paired with madc 0.106.1 (`madcide.json`).
+
+- On Windows, Run is quiet again: a program that includes a system header no
+  longer shows a `madc: pack spelled names: ...` line from madc in its output.
+  madc 0.106.1 fixes it; madcide's own Windows test suite failed on it with
+  madc 0.106.0.
+
 ## [0.9.0] — 2026-10-23
 
 The shared-faces release, paired with madc 0.106.0 (`madcide.json`): three
